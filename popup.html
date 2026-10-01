@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="fonts/style.css" />
+    <link rel="stylesheet" href="css/style.css" />
+
+
+  
+  </head>
+
+  <body>
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">🎙️</div>
+
+      <div class="title">
+        <h1>Gemini Dubbing</h1>
+        <p>ترجمه و دوبله هوشمند ویدیو</p>
+        <div id="ver"></div>
+      </div>
+    </div>
+
+    <!-- Gemini -->
+    <div class="section">
+      <div class="section-title">
+        <span>⚙️</span>
+        تنظیمات Gemini
+      </div>
+
+      <label>Gemini API Key</label>
+      <input id="key" type="password" placeholder="API Key" />
+
+      <label>مدل ترجمه (STT + Translate)</label>
+      <input
+        id="stt"
+        type="text"
+        placeholder="خالی = gemini-3.5-live-translate-preview "
+      />
+
+      <label>مدل TTS</label>
+      <input
+        id="tts"
+        type="text"
+        placeholder="gemini-3.8-flash"
+      />
+
+    <label>گفتار</label>
+<select id="voice">
+  <option value="Kore">Kore</option>
+  <option value="Puck">Puck</option>
+  <option value="Charon">Charon</option>
+  <option value="Aoede">Aoede</option>
+  <option value="Leda">Leda</option>
+  <option value="Iapetus">Iapetus</option>
+  <option value="Algieba">Algieba</option>
+  <option value="Erinome">Erinome</option>
+  <option value="Rasalgethi">Rasalgethi</option>
+  <option value="Achernar">Achernar</option>
+  <option value="Gacrux">Gacrux</option>
+  <option value="Achird">Achird</option>
+  <option value="Vindemiatrix">Vindemiatrix</option>
+  <option value="Sulafat">Sulafat</option>
+  <option value="Sadaltager">Sadaltager</option>
+</select>
+
+      <label>زبان مقصد (کد BCP-47)</label>
+      <input
+        id="target"
+        type="text"
+        placeholder="fa"
+        style="direction: ltr"
+      />
+    </div>
+
+    <!-- Audio -->
+    <div class="section">
+      <div class="section-title">
+        <span>🔊</span>
+        صدا و دوبله
+      </div>
+
+      <label>
+        <div class="range-header">
+          <span>صدای اصلی ویدیو</span>
+          <span id="vv">20%</span>
+        </div>
+      </label>
+
+      <input
+        id="origVol"
+        type="range"
+        min="0"
+        max="100"
+        value="20"
+      />
+
+   
+
+
+      </select>
+
+  
+    </div>
+
+    <!-- Subtitles -->
+    <div class="section">
+      <div class="section-title">
+        <span>💬</span>
+        زیرنویس
+      </div>
+
+      <label class="check">
+        <input type="checkbox" id="subs" />
+        <span>زیرنویس  روی ویدیو</span>
+      </label>
+
+      <label class="check">
+        <input type="checkbox" id="subsOrig" />
+        <span>نمایش متن اصلی</span>
+      </label>
+
+  
+    </div>
+
+    <!-- Main actions -->
+    <div class="actions">
+      <button id="start">
+        ▶ شروع دوبله
+      </button>
+
+      <button id="stop">
+        ⏹ توقف
+      </button>
+    </div>
+
+    <div id="st"></div>
+
+
+    <script src="popup.js"></script>
+  </body>
+</html>
