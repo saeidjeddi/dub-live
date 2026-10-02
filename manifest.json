@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gemini Live Persian Dub",
-  "version": "0.4.3",
+  "version": "0.4.5",
   "description": "دوبله دوطرفه فارسی ⇄ انگلیسی برای aistudio.google.com/live",
   "permissions": [
     "activeTab",

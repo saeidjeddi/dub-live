@@ -2,7 +2,7 @@
   if (!navigator.mediaDevices || window.__dubInjected) return;
   window.__dubInjected = true;
   const orig = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
-  let cfg = { micDub: true };
+  let cfg = { micDub: false },
     ctx,
     ttsGain,
     passGain;

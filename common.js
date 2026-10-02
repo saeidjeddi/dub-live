@@ -113,7 +113,8 @@ var __DubKit = (() => {
     const src = ctx.createBufferSource();
     src.buffer = ab;
     src.connect(node);
-    const t = Math.max(ctx.currentTime + 0.05, state.next || 0);
+    // keep contiguous when already playing; otherwise start with a small lead to absorb network jitter
+    const t = state.next > ctx.currentTime ? state.next : ctx.currentTime + 0.2;
     src.start(t);
     state.next = t + ab.duration;
   }

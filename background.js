@@ -247,6 +247,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, send) => {
         "liveModel",
         "target",
         "origVol",
+        "voiceOn",
         "subs",
         "subsOrig",
       ]);
@@ -285,6 +286,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, send) => {
         liveModel,
         lang: s.target || "fa",
         origVol: s.origVol == null ? 20 : s.origVol,
+        voiceOn: s.voiceOn !== false,
       });
       send({ ok: true });
     })();
@@ -322,5 +324,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, send) => {
       .sendMessage({ target: "offscreen", type: "stop" })
       .catch(() => {});
     send({ ok: true });
+  }
+});
+
+// toggling "play dubbed voice" in the popup applies instantly to a running session
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes.voiceOn) {
+    chrome.runtime
+      .sendMessage({
+        target: "offscreen",
+        type: "cfg",
+        voiceOn: changes.voiceOn.newValue !== false,
+      })
+      .catch(() => {});
   }
 });

@@ -32,7 +32,7 @@
       <label>Gemini API Key</label>
       <input id="key" type="password" placeholder="API Key" />
 
-      <label>مدل ترجمه (STT + Translate)</label>
+      <label>مدل Live Translate</label>
       <input
         id="stt"
         type="text"
@@ -65,7 +65,7 @@
   <option value="Sadaltager">Sadaltager</option>
 </select>
 
-      <label>زبان ترجمه (کد BCP-47)</label>
+      <label>زبان مقصد (کد BCP-47)</label>
       <input
         id="target"
         type="text"
@@ -96,12 +96,15 @@
         value="20"
       />
 
-   
+      <label class="check">
+        <input type="checkbox" id="voiceOn" />
+        <span>پخش صدای دوبله (خاموش = فقط زیرنویس)</span>
+      </label>
 
-
-      </select>
-
-  
+      <label class="check">
+        <input type="checkbox" id="mic" />
+        <span>دوبله میکروفون (فارسی ← انگلیسی، فقط aistudio.google.com)</span>
+      </label>
     </div>
 
     <!-- Subtitles -->
@@ -136,6 +139,24 @@
     </div>
 
     <div id="st"></div>
+
+    <!-- Diagnostics -->
+    <div class="section">
+      <div class="section-title">
+        <span>🛠️</span>
+        عیب‌یابی
+      </div>
+
+      <div class="log-actions">
+        <button id="copy">📋 کپی لاگ</button>
+        <button id="clear">🗑 پاک کردن لاگ</button>
+      </div>
+
+      <div class="log-box">
+        <pre id="log"></pre>
+        <pre id="dbg"></pre>
+      </div>
+    </div>
 
 
     <script src="popup.js"></script>

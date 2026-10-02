@@ -1,3 +1,4 @@
+let voiceOn = true; // false = translated voice muted (subtitles keep working)
 let ctx,
   origCtx,
   stream,
@@ -21,6 +22,7 @@ function flushPlayback() {
     out.disconnect();
   } catch {}
   out = ctx.createGain();
+  out.gain.value = voiceOn ? 1 : 0;
   out.connect(ctx.destination);
   playState.next = 0;
 }
@@ -176,7 +178,7 @@ function flush() {
     done.delete(nextPlay);
     nextPlay++;
     if (ctx && r && r.pcm) __DubKit.playPcm(ctx, out, r.pcm, r.rate, playState);
-    else if (ctx && r && r.text && useBrowser) {
+    else if (ctx && r && r.text && useBrowser && voiceOn) {
       if (speechSynthesis.pending) speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(r.text);
       u.lang = "fa-IR";
@@ -252,7 +254,9 @@ async function start(cfg) {
   });
   ctx = isLive ? new AudioContext({ sampleRate: 16000 }) : new AudioContext();
   await ctx.resume();
+  voiceOn = cfg.voiceOn !== false;
   out = ctx.createGain();
+  out.gain.value = voiceOn ? 1 : 0;
   out.connect(ctx.destination);
   beep();
   const src = ctx.createMediaStreamSource(stream); // not routed to destination => original audio stays muted
@@ -320,4 +324,9 @@ chrome.runtime.onMessage.addListener((m) => {
       st({ stage: "error", error: "start failed: " + e.message });
     });
   if (m.type === "stop") stop();
+  if (m.type === "cfg") {
+    voiceOn = m.voiceOn !== false;
+    if (out) out.gain.value = voiceOn ? 1 : 0;
+    if (!voiceOn) speechSynthesis.cancel();
+  }
 });

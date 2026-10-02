@@ -1,5 +1,13 @@
 // Isolated world: bridge between page and extension
-
+const sendCfg = () =>
+  chrome.storage.local
+    .get("micDub")
+    .then((v) =>
+      window.postMessage(
+        { dubExt: true, type: "cfg", micDub: !!v.micDub },
+        "*",
+      ),
+    );
 
 window.addEventListener("message", async (e) => {
   const d = e.data;
