@@ -96,6 +96,13 @@ body {
   letter-spacing: 0.2px;
 }
 
+.hint {
+  margin: 4px 0 0;
+  color: #8b9aab;
+  font-size: 10.5px;
+  line-height: 1.6;
+}
+
 .section-title span {
   font-size: 15px;
 }
@@ -256,6 +263,14 @@ button:active {
   box-shadow:
     0 8px 22px rgba(139, 92, 246, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.mic-translation {
+  margin-top: 8px;
+  color: #e6edf5;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 
 #stop {

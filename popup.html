@@ -17,7 +17,7 @@
 
       <div class="title">
         <h1>Dub Live</h1>
-        <p>ترجمه و دوبله هوشمند ویدیو</p>
+        <p>مترجم زندهٔ جلسه</p>
         <div id="ver"></div>
       </div>
     </div>
@@ -32,58 +32,34 @@
       <label>Gemini API Key</label>
       <input id="key" type="password" placeholder="API Key" />
 
-      <label>مدل Live Translate</label>
+      <label>مدل ترجمهٔ زنده</label>
       <input
         id="stt"
         type="text"
         placeholder="خالی = gemini-3.5-live-translate-preview "
       />
 
-      <label>مدل TTS</label>
+      <label>کد زبان شما (فارسی: fa)</label>
       <input
-        id="tts"
-        type="text"
-        placeholder="gemini-3.8-flash"
-      />
-
-    <label>گفتار</label>
-<select id="voice">
-  <option value="Kore">Kore</option>
-  <option value="Puck">Puck</option>
-  <option value="Charon">Charon</option>
-  <option value="Aoede">Aoede</option>
-  <option value="Leda">Leda</option>
-  <option value="Iapetus">Iapetus</option>
-  <option value="Algieba">Algieba</option>
-  <option value="Erinome">Erinome</option>
-  <option value="Rasalgethi">Rasalgethi</option>
-  <option value="Achernar">Achernar</option>
-  <option value="Gacrux">Gacrux</option>
-  <option value="Achird">Achird</option>
-  <option value="Vindemiatrix">Vindemiatrix</option>
-  <option value="Sulafat">Sulafat</option>
-  <option value="Sadaltager">Sadaltager</option>
-</select>
-
-      <label>ترجمه به زبان  (کد BCP-47)</label>
-      <input
-        id="target"
+        id="userLang"
         type="text"
         placeholder="fa"
         style="direction: ltr"
       />
+      <label>کد زبان دوستتان (انگلیسی: en)</label>
+      <input id="friendLang" type="text" placeholder="en" style="direction: ltr" />
     </div>
 
     <!-- Audio -->
     <div class="section">
       <div class="section-title">
         <span>🔊</span>
-        صدا و دوبله
+        ترجمهٔ مکالمه
       </div>
 
       <label>
         <div class="range-header">
-          <span>صدای اصلی ویدیو</span>
+          <span>صدای اصلی جلسه</span>
           <span id="vv">20%</span>
         </div>
       </label>
@@ -93,18 +69,17 @@
         type="range"
         min="0"
         max="100"
-        value="20"
+        value="0"
       />
 
       <label class="check">
         <input type="checkbox" id="voiceOn" />
-        <span>پخش صدای دوبله</span>
+        <span>پخش ترجمهٔ صدای دوستتان</span>
       </label>
 
-      <label class="check">
-        <input type="checkbox" id="mic" />
-        <span> دوبله میکروفون</span>
-      </label>
+      <p class="hint">صدای دوستتان به زبان شما پخش می‌شود و گفتار شما پس از ترجمه از میکروفون جلسه برای دوستتان فرستاده می‌شود.</p>
+      <p class="hint">صدای خام شما به تماس فرستاده نمی‌شود؛ اگر تماس از قبل برقرار است، پس از شروع ترجمه دوباره وصل شوید.</p>
+      <p class="hint">برای ترجمه، صدای جلسه و میکروفون با API Key شما به Gemini فرستاده می‌شود. هنگام شروع، اگر تماس باز است یک‌بار دوباره به تماس وصل شوید.</p>
     </div>
 
     <!-- Subtitles -->
@@ -130,7 +105,7 @@
     <!-- Main actions -->
     <div class="actions">
       <button id="start">
-        ▶ شروع دوبله
+        ▶ شروع مترجم جلسه
       </button>
 
       <button id="stop">
@@ -159,6 +134,7 @@
     </div>
 
 
+    <script src="common.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

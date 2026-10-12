@@ -288,7 +288,7 @@ async function start(cfg) {
     p.connect(mute);
     mute.connect(ctx.destination);
   } else {
-    proc = __DubKit.tap(ctx, src, onSeg, { minSeg: 6, maxSeg: 12 });
+    proc = await __DubKit.tap(ctx, src, onSeg, { minSeg: 6, maxSeg: 12 });
     st({ stage: "capturing", ctxState: ctx.state });
   }
 }

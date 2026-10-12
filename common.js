@@ -1,5 +1,6 @@
 // Shared helpers (VAD segmenter, WAV encoding, PCM playback)
 var __DubKit = (() => {
+  const workletModules = new WeakMap();
   const TH = 0.01,
     SILENCE = 0.4,
     MIN_VOICE = 0.3,
@@ -119,10 +120,27 @@ var __DubKit = (() => {
     state.next = t + ab.duration;
   }
 
-  function tap(ctx, sourceNode, onSegment, opts) {
-    const proc = ctx.createScriptProcessor(4096, 1, 1);
-    const seg = makeSegmenter(ctx.sampleRate, onSegment, opts);
-    proc.onaudioprocess = (e) => seg(e.inputBuffer.getChannelData(0));
+  async function tap(ctx, sourceNode, onSegment, opts, workletUrl) {
+    let loaded = workletModules.get(ctx);
+    if (!loaded) {
+      loaded = ctx.audioWorklet.addModule(workletUrl || "pcm-worklet.js");
+      workletModules.set(ctx, loaded);
+    }
+    await loaded;
+    const proc = new AudioWorkletNode(ctx, "pcm-tap", {
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      outputChannelCount: [1],
+      channelCount: 1,
+      channelCountMode: "explicit",
+    });
+    const seg = typeof onSegment === "function"
+      ? makeSegmenter(ctx.sampleRate, onSegment, opts)
+      : null;
+    proc.port.onmessage = (e) => {
+      if (typeof opts?.onFrame === "function") opts.onFrame(e.data);
+      if (seg) seg(e.data);
+    };
     const mute = ctx.createGain();
     mute.gain.value = 0;
     sourceNode.connect(proc);

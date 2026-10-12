@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
+  "minimum_chrome_version": "116",
   "name": "Dub Live",
-  "version": "0.4.5",
-  "description": "دوبله دوطرفه به هر زبان دلخواهید با این افزونه به شما امکان می‌دهد تا مکالمات خود را به صورت زنده به زبان‌های مختلف دوبله کنید.",
+  "version": "0.4.15",
+  "description": "ترجمهٔ زندهٔ دوطرفه برای مکالمات وب: صدای میکروفون را برای طرف مقابل ترجمه می‌کند و صدای او را برای شما برمی‌گرداند.",
   "permissions": [
     "activeTab",
     "offscreen",
@@ -13,6 +14,12 @@
   "host_permissions": [
     "https://aistudio.google.com/*",
     "https://generativelanguage.googleapis.com/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["pcm-worklet.js"],
+      "matches": ["http://*/*", "https://*/*"]
+    }
   ],
   "background": {
     "service_worker": "background.js"

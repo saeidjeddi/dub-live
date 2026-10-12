@@ -1,133 +1,141 @@
 const $ = (id) => document.getElementById(id);
 
-// field id -> storage key (the first input is the Live Translate model)
 const FIELDS = {
   key: "key",
   stt: "liveModel",
-  tts: "ttsModel",
-  voice: "voice",
-  target: "target",
+  userLang: "userLang",
+  friendLang: "friendLang",
   origVol: "origVol",
   subs: "subs",
   subsOrig: "subsOrig",
-  mic: "micDub",
   voiceOn: "voiceOn",
 };
 
-const showVol = () => {
-  $("vv").textContent = $("origVol").value + "%";
-};
-
-chrome.storage.local.get(Object.values(FIELDS)).then((s) => {
+chrome.storage.local.get([...Object.values(FIELDS), "target"]).then((s) => {
   $("key").value = s.key || "";
   $("stt").value = s.liveModel || "";
-  $("tts").value = s.ttsModel || "";
-  $("voice").value = s.voice || "Kore";
-  $("target").value = s.target || "fa";
-  $("origVol").value = s.origVol == null ? 20 : s.origVol;
+  $("userLang").value = s.userLang || s.target || "fa";
+  $("friendLang").value = s.friendLang || "en";
+  $("origVol").value = s.origVol == null ? 0 : s.origVol;
   $("subs").checked = s.subs !== false;
   $("subsOrig").checked = !!s.subsOrig;
-  $("mic").checked = !!s.micDub;
   $("voiceOn").checked = s.voiceOn !== false;
   showVol();
 });
 
-const save = () =>
-  chrome.storage.local.set({
-    key: $("key").value.trim(),
-    liveModel: $("stt").value.trim(),
-    ttsModel: $("tts").value.trim(),
-    voice: $("voice").value,
-    target: $("target").value.trim() || "fa",
-    origVol: +$("origVol").value,
-    subs: $("subs").checked,
-    subsOrig: $("subsOrig").checked,
-    micDub: $("mic").checked,
-    voiceOn: $("voiceOn").checked,
-    engine: "live", // this popup has no engine switch; avoid being stuck on an old "chunk" value
-  });
+const showVol = () => { $("vv").textContent = $("origVol").value + "%"; };
+const save = () => chrome.storage.local.set({
+  key: $("key").value.trim(),
+  liveModel: $("stt").value.trim(),
+  userLang: $("userLang").value.trim() || "fa",
+  friendLang: $("friendLang").value.trim() || "en",
+  // Keep the legacy field aligned for compatibility with old config readers.
+  target: $("userLang").value.trim() || "fa",
+  origVol: +$("origVol").value,
+  subs: $("subs").checked,
+  subsOrig: $("subsOrig").checked,
+  voiceOn: $("voiceOn").checked,
+  engine: "live",
+});
 
 Object.keys(FIELDS).forEach((id) => $(id).addEventListener("change", save));
 $("origVol").addEventListener("input", showVol);
 
+async function installMeetingBridge(tabId) {
+  // The page-world hook replaces the outgoing WebRTC microphone track.
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    world: "MAIN",
+    files: ["common.js", "inject.js"],
+  });
+  // The isolated bridge forwards live microphone frames to the Gemini service worker.
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    world: "ISOLATED",
+    files: ["content.js"],
+  });
+}
+
 $("start").onclick = async () => {
   await save();
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab) {
-    $("st").textContent = "تب فعالی پیدا نشد";
-    return;
-  }
+  $("start").disabled = true;
   try {
-    await chrome.runtime.sendMessage({ type: "stopTab" }); // release any previous capture first
-    await new Promise((r) => setTimeout(r, 400));
-    const streamId = await chrome.tabCapture.getMediaStreamId({
-      targetTabId: tab.id,
+    const key = $("key").value.trim();
+    if (!key) throw new Error("ابتدا Gemini API Key را وارد کنید.");
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id || !/^https?:/.test(tab.url || "")) {
+      throw new Error("صفحهٔ جلسه باید یک وب‌سایت http یا https باشد.");
+    }
+
+    await chrome.runtime.sendMessage({ type: "stopTab" }).catch(() => {});
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    await chrome.storage.local.set({ log: [] });
+    await chrome.storage.local.remove(["status", "level", "micLevel"]);
+
+    // activeTab permission is granted because the user clicked the extension action.
+    await installMeetingBridge(tab.id);
+    await chrome.tabs.sendMessage(tab.id, {
+      type: "meetingCfg",
+      enabled: true,
+      sourceLang: $("userLang").value.trim() || "fa",
+      targetLang: $("friendLang").value.trim() || "en",
+      workletUrl: chrome.runtime.getURL("pcm-worklet.js"),
     });
+
+    const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
     await chrome.runtime.sendMessage({
       type: "startTab",
       streamId,
       tabId: tab.id,
+      userLang: $("userLang").value.trim() || "fa",
+      friendLang: $("friendLang").value.trim() || "en",
     });
-    $("st").textContent = "فعال شد ✅";
+    $("st").textContent = "مترجم جلسه فعال است؛ اگر تماس باز است دوباره به تماس وصل شوید.";
   } catch (e) {
-    $("st").textContent = "خطا: " + e.message;
+    $("st").textContent = "خطا: " + (e.message || e);
+    await chrome.runtime.sendMessage({ type: "stopTab" }).catch(() => {});
+  } finally {
+    $("start").disabled = false;
   }
 };
 
 $("stop").onclick = async () => {
   await chrome.runtime.sendMessage({ type: "stopTab" });
   chrome.action.setBadgeText({ text: "" });
-  $("st").textContent = "متوقف شد";
+  $("st").textContent = "مترجم جلسه متوقف شد";
 };
 
-/* ---------- diagnostics ---------- */
+$("voiceOn").addEventListener("change", () => {
+  chrome.runtime.sendMessage({
+    target: "offscreen",
+    type: "cfg",
+    voiceOn: $("voiceOn").checked,
+  }).catch(() => {});
+});
+
 $("ver").textContent = "v" + chrome.runtime.getManifest().version;
-
 const ago = (o) => Math.round((Date.now() - o.t) / 1000) + "s ago";
-
 const showStatus = async () => {
-  const { status, level } = await chrome.storage.local.get(["status", "level"]);
-  $("dbg").textContent =
-    "status: " +
-    (status ? JSON.stringify(status) + " " + ago(status) : "none") +
-    "\nlevel: " +
-    (level ? JSON.stringify(level) + " " + ago(level) : "none");
+  const { status, level, micLevel } = await chrome.storage.local.get(["status", "level", "micLevel"]);
+  $("dbg").textContent = "status: " + (status ? JSON.stringify(status) + " " + ago(status) : "none") +
+    "\nlevel: " + (level ? JSON.stringify(level) + " " + ago(level) : "none") +
+    "\nmic level: " + (micLevel ? JSON.stringify(micLevel) + " " + ago(micLevel) : "none");
 };
-
 const showLog = async () => {
   const { log = [] } = await chrome.storage.local.get("log");
-  $("log").textContent = log
-    .slice()
-    .reverse()
-    .map((l) => JSON.stringify(l))
-    .join("\n");
+  $("log").textContent = log.slice().reverse().map((entry) => JSON.stringify(entry)).join("\n");
 };
-
-setInterval(() => {
-  showStatus();
-  showLog();
-}, 1000);
+setInterval(() => { showStatus(); showLog(); }, 1000);
 showStatus();
 showLog();
 
 $("copy").onclick = async () => {
-  const {
-    log = [],
-    status,
-    level,
-  } = await chrome.storage.local.get(["log", "status", "level"]);
-  await navigator.clipboard.writeText(
-    JSON.stringify(
-      { version: chrome.runtime.getManifest().version, status, level, log },
-      null,
-      1,
-    ),
-  );
+  const { log = [], status, level, micLevel } = await chrome.storage.local.get(["log", "status", "level", "micLevel"]);
+  await navigator.clipboard.writeText(JSON.stringify({ version: chrome.runtime.getManifest().version, status, level, micLevel, log }, null, 1));
   $("st").textContent = "لاگ کپی شد ✅";
 };
-
 $("clear").onclick = async () => {
-  await chrome.storage.local.remove(["log", "status", "level"]);
+  await chrome.storage.local.remove(["log", "status", "level", "micLevel"]);
   chrome.action.setBadgeText({ text: "" });
   $("st").textContent = "لاگ پاک شد 🧹";
   showStatus();
