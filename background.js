@@ -458,16 +458,23 @@ chrome.runtime.onMessage.addListener((msg, _sender, send) => {
         "voiceOn",
         "subs",
         "subsOrig",
+        "micOn",
       ]);
       const engine = s.engine || "live";
       const liveModel = s.liveModel || "gemini-3.5-live-translate-preview";
-      startMeetingMicLive({
-        tabId: msg.tabId,
-        key: s.key,
-        model: liveModel,
-        source: msg.userLang || s.userLang || "fa",
-        target: msg.friendLang || s.friendLang || "en",
-      });
+      const micOn = msg.micOn ?? (s.micOn !== false);
+      // Translating the user's own speech is optional: skip the Gemini mic session entirely when off.
+      if (micOn) {
+        startMeetingMicLive({
+          tabId: msg.tabId,
+          key: s.key,
+          model: liveModel,
+          source: msg.userLang || s.userLang || "fa",
+          target: msg.friendLang || s.friendLang || "en",
+        });
+      } else {
+        stopMeetingMicLive();
+      }
       await ensureOffscreen();
       if (msg.tabId != null) {
         await chrome.storage.local.set({ captionTabId: msg.tabId, meetingTabId: msg.tabId });

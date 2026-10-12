@@ -9,6 +9,7 @@ const FIELDS = {
   subs: "subs",
   subsOrig: "subsOrig",
   voiceOn: "voiceOn",
+  micOn: "micOn",
 };
 
 chrome.storage.local.get([...Object.values(FIELDS), "target"]).then((s) => {
@@ -20,6 +21,7 @@ chrome.storage.local.get([...Object.values(FIELDS), "target"]).then((s) => {
   $("subs").checked = s.subs !== false;
   $("subsOrig").checked = !!s.subsOrig;
   $("voiceOn").checked = s.voiceOn !== false;
+  $("micOn").checked = s.micOn !== false;
   showVol();
 });
 
@@ -35,6 +37,7 @@ const save = () => chrome.storage.local.set({
   subs: $("subs").checked,
   subsOrig: $("subsOrig").checked,
   voiceOn: $("voiceOn").checked,
+  micOn: $("micOn").checked,
   engine: "live",
 });
 
@@ -72,15 +75,20 @@ $("start").onclick = async () => {
     await chrome.storage.local.set({ log: [] });
     await chrome.storage.local.remove(["status", "level", "micLevel"]);
 
-    // activeTab permission is granted because the user clicked the extension action.
-    await installMeetingBridge(tab.id);
-    await chrome.tabs.sendMessage(tab.id, {
-      type: "meetingCfg",
-      enabled: true,
-      sourceLang: $("userLang").value.trim() || "fa",
-      targetLang: $("friendLang").value.trim() || "en",
-      workletUrl: chrome.runtime.getURL("pcm-worklet.js"),
-    });
+    const micOn = $("micOn").checked;
+    // When "translate my speech" is off, the page's microphone is left untouched:
+    // no hook is installed and the raw mic goes to the call as usual.
+    if (micOn) {
+      // activeTab permission is granted because the user clicked the extension action.
+      await installMeetingBridge(tab.id);
+      await chrome.tabs.sendMessage(tab.id, {
+        type: "meetingCfg",
+        enabled: true,
+        sourceLang: $("userLang").value.trim() || "fa",
+        targetLang: $("friendLang").value.trim() || "en",
+        workletUrl: chrome.runtime.getURL("pcm-worklet.js"),
+      });
+    }
 
     const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
     await chrome.runtime.sendMessage({
@@ -89,8 +97,11 @@ $("start").onclick = async () => {
       tabId: tab.id,
       userLang: $("userLang").value.trim() || "fa",
       friendLang: $("friendLang").value.trim() || "en",
+      micOn,
     });
-    $("st").textContent = "مترجم جلسه فعال است؛ اگر تماس باز است دوباره به تماس وصل شوید.";
+    $("st").textContent = micOn
+      ? "مترجم جلسه فعال است؛ اگر تماس باز است دوباره به تماس وصل شوید."
+      : "مترجم جلسه فعال است؛ گفتار شما ترجمه نمی‌شود.";
   } catch (e) {
     $("st").textContent = "خطا: " + (e.message || e);
     await chrome.runtime.sendMessage({ type: "stopTab" }).catch(() => {});
