@@ -180,7 +180,7 @@ function logMeetingMic(stage, extra = {}) {
     await setStatus(record);
     const { log = [] } = await chrome.storage.local.get("log");
     log.push({ t: new Date().toLocaleTimeString(), ...record });
-    await chrome.storage.local.set({ log: log.slice(-30) });
+    await chrome.storage.local.set({ log: log.slice(-100) });
   }).catch(() => {});
   return meetingMicLogQueue;
 }
@@ -189,7 +189,7 @@ async function logMicStatus(o) {
   await setStatus(o);
   const { log = [] } = await chrome.storage.local.get("log");
   log.push({ t: new Date().toLocaleTimeString(), source: "mic", ...o });
-  await chrome.storage.local.set({ log: log.slice(-30) });
+  await chrome.storage.local.set({ log: log.slice(-100) });
 }
 
 async function dub(dir, wav, textOnly, target, source) {
@@ -333,6 +333,10 @@ function startMeetingMicLive(config) {
         if (message.error) logMeetingMic("error", { error: JSON.stringify(message.error).slice(0, 500) });
         return;
       }
+      // Diagnostics: what the model heard from the microphone and what it said back.
+      // Shows whether a repeat comes from duplicated input, the model's output, or playback.
+      if (content.inputTranscription?.text) logMeetingMic("heard", { text: content.inputTranscription.text });
+      if (content.outputTranscription?.text) logMeetingMic("said", { text: content.outputTranscription.text });
       if (content.interrupted && session.trackId) {
         chrome.tabs.sendMessage(session.tabId, { type: "meetingMicAudio", trackId: session.trackId, interrupted: true }).catch(() => {});
       }
@@ -397,7 +401,21 @@ chrome.runtime.onMessage.addListener((msg, _sender, send) => {
   if (msg.type === "meetingMicFrame") {
     const session = meetingMicLive;
     if (!session || session.tabId !== _sender.tab?.id || !msg.pcm) return;
+    // Only one microphone route may feed the Gemini session. If the page exposes the same mic
+    // through two tracks (clones / re-negotiation), forwarding both would send every word twice
+    // and the translation would repeat. A different track is accepted only after the active one
+    // has been silent for 1.5s (a genuine track swap).
+    const now = Date.now();
+    if (msg.trackId && session.trackId && msg.trackId !== session.trackId &&
+        now - (session.lastFrameAt || 0) < 1500) {
+      if (!session.multiTrackLogged) {
+        session.multiTrackLogged = true;
+        logMeetingMic("multiple_mic_tracks", { active: session.trackId, ignored: msg.trackId });
+      }
+      return;
+    }
     session.trackId = msg.trackId || session.trackId;
+    session.lastFrameAt = now;
     const frame = { pcm: msg.pcm };
     if (session.pending.length >= 30) session.pending.shift();
     session.pending.push(frame);
@@ -537,7 +555,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, send) => {
     setStatus(msg.status);
     chrome.storage.local.get("log").then(({ log = [] }) => {
       log.push({ t: new Date().toLocaleTimeString(), ...msg.status });
-      chrome.storage.local.set({ log: log.slice(-30) });
+      chrome.storage.local.set({ log: log.slice(-100) });
     });
     return;
   }

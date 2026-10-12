@@ -49,7 +49,7 @@ function liveStart(cfg) {
         audioChunksReceived: L.recv,
         captionFragments: L.cap,
       }),
-    3000,
+    10000,
   );
   const connect = () => {
     const url =
@@ -92,7 +92,8 @@ function liveStart(cfg) {
       } catch {
         return;
       }
-      if (!m.setupComplete && !m.serverContent)
+      // sessionResumptionUpdate / usageMetadata arrive every ~2s and would flush useful entries out of the log
+      if (!m.setupComplete && !m.serverContent && !m.sessionResumptionUpdate && !m.usageMetadata)
         st({ stage: "live_msg", raw: JSON.stringify(m).slice(0, 400) });
       if (m.setupComplete) {
         L.ready = true;
