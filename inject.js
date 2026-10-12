@@ -10,6 +10,42 @@
   const senderPrototype = globalThis.RTCRtpSender?.prototype;
   const originalReplaceTrack = senderPrototype?.replaceTrack;
   const routes = new Set();
+  const pcs = new Set(); // WeakRef<RTCPeerConnection> for every connection the page creates
+  const ours = new WeakSet(); // output tracks we created, so they are never routed again
+
+  // Track every RTCPeerConnection so that, when translation is switched on while a call is
+  // already open, we can swap the live microphone sender instead of requiring a rejoin.
+  const NativePC = window.RTCPeerConnection;
+  window.RTCPeerConnection = new Proxy(NativePC, {
+    construct(target, args, newTarget) {
+      const pc = Reflect.construct(target, args, newTarget);
+      pcs.add(new WeakRef(pc));
+      return pc;
+    },
+  });
+
+  function rerouteExisting() {
+    for (const ref of pcs) {
+      const pc = ref.deref();
+      if (!pc || pc.connectionState === "closed") { pcs.delete(ref); continue; }
+      let senders = [];
+      try { senders = pc.getSenders(); } catch { continue; }
+      for (const sender of senders) {
+        const track = sender.track;
+        if (!track || ours.has(track) || !isMicrophone(track)) continue;
+        let route;
+        try { route = routeMicrophone(track); }
+        catch (error) {
+          window.postMessage({ dubExt: true, type: "micHookError", error: String(error.message || error) }, "*");
+          continue;
+        }
+        route.senders.push(sender);
+        routes.add(route);
+        originalReplaceTrack.call(sender, route.outputTrack).catch(() => {});
+        window.postMessage({ dubExt: true, type: "micHookActive", trackId: route.trackId }, "*");
+      }
+    }
+  }
 
   window.addEventListener("message", (event) => {
     const data = event.data;
@@ -27,6 +63,8 @@
           tracks.delete(route.sourceTrack);
         }
         routes.clear();
+      } else {
+        rerouteExisting();
       }
       return;
     }
@@ -61,6 +99,7 @@
     translated.gain.value = 1;
     translated.connect(destination);
     const outputTrack = destination.stream.getAudioTracks()[0];
+    ours.add(outputTrack);
     const trackId = crypto.randomUUID();
     const state = { next: 0 };
     playback.set(trackId, { ctx, gain: translated, state });

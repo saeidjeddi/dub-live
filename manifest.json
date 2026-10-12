@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "minimum_chrome_version": "116",
   "name": "Dub Live",
-  "version": "0.4.15",
+  "version": "0.4.16",
   "description": "ترجمهٔ زندهٔ دوطرفه برای مکالمات وب: صدای میکروفون را برای طرف مقابل ترجمه می‌کند و صدای او را برای شما برمی‌گرداند.",
   "permissions": [
     "activeTab",
@@ -17,8 +17,13 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["pcm-worklet.js"],
-      "matches": ["http://*/*", "https://*/*"]
+      "resources": [
+        "pcm-worklet.js"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
     }
   ],
   "background": {
@@ -36,7 +41,10 @@
   "content_scripts": [
     {
       "matches": [
-        "https://aistudio.google.com/*"
+        "https://aistudio.google.com/*",
+        "https://meet.google.com/*",
+        "https://teams.microsoft.com/*",
+        "https://teams.live.com/*"
       ],
       "js": [
         "common.js",
@@ -47,7 +55,10 @@
     },
     {
       "matches": [
-        "https://aistudio.google.com/*"
+        "https://aistudio.google.com/*",
+        "https://meet.google.com/*",
+        "https://teams.microsoft.com/*",
+        "https://teams.live.com/*"
       ],
       "js": [
         "content.js"
