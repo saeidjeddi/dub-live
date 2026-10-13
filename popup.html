@@ -93,6 +93,7 @@
               </button>
             </div>
             <a class="hint" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">دریافت کلید OpenAI (نیاز به اعتبار حساب) ↗</a>
+            <a class="hint" href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">دریافت کلید Groq (رایگان) ↗</a>
           </div>
 
           <div class="field" data-for="openai" hidden>
@@ -111,6 +112,12 @@
               <li>برای زبان‌هایی که Realtime پشتیبانی نمی‌کند (مثلاً خروجی فارسی) به‌طور خودکار استفاده می‌شود.</li>
               <li>برای Groq / سرور محلی و ... آدرس و نام مدل‌ها را تغییر دهید؛ مدل TTS را خالی بگذارید تا فقط زیرنویس داشته باشید.</li>
             </ul>
+            <div class="field presets">
+              <label>پیش‌تنظیم</label>
+              <button id="presetGroq" class="btn btn-ghost" type="button">Groq (رایگان)</button>
+              <button id="presetOpenai" class="btn btn-ghost" type="button">OpenAI</button>
+              <p class="hint" id="presetNote"></p>
+            </div>
             <div class="field">
               <label for="pBase">Base URL</label>
               <input id="pBase" type="text" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false" />

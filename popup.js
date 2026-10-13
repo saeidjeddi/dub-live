@@ -204,3 +204,22 @@ $("clear").onclick = async () => {
   showStatus();
   showLog();
 };
+
+// One-click presets for the generic pipeline
+const PRESETS = {
+  presetGroq: {
+    pBase: "https://api.groq.com/openai/v1", pStt: "whisper-large-v3-turbo", pChat: "openai/gpt-oss-20b", pTts: "", pVoice: "",
+    note: "Groq: STT و ترجمه رایگان؛ TTS فارسی ندارد، پس فقط زیرنویس. برای شنیدن، «صدای اصلی جلسه» را بالا ببرید. کلید را از console.groq.com بگیرید.",
+  },
+  presetOpenai: {
+    pBase: "https://api.openai.com/v1", pStt: "gpt-4o-transcribe", pChat: "gpt-4o-mini", pTts: "gpt-4o-mini-tts", pVoice: "alloy",
+    note: "OpenAI: نیاز به اعتبار پولی در حساب API.",
+  },
+};
+Object.entries(PRESETS).forEach(([id, p]) => {
+  $(id).addEventListener("click", async () => {
+    for (const k of ["pBase", "pStt", "pChat", "pTts", "pVoice"]) $(k).value = p[k];
+    $("presetNote").textContent = p.note;
+    await save();
+  });
+});
