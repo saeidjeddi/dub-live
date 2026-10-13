@@ -44,7 +44,7 @@ var DubProviders = (() => {
         pBase: GROQ.base,
         pStt: g("gStt", GROQ.stt),
         pChat: g("gChat", GROQ.chat),
-        pTts: typeof s.gTts === "string" ? s.gTts.trim() : "", // empty = captions only
+        pTts: typeof s.gTts === "string" ? s.gTts.trim() : "browser", // "" = captions only, "browser" = speechSynthesis
         pVoice: g("gVoice", ""),
       };
     }
@@ -346,7 +346,7 @@ var DubProviders = (() => {
     const auth = { Authorization: "Bearer " + c.openaiKey };
     const srcName = languageName(o.source), tgtName = languageName(o.target);
     const same = norm(o.source) === norm(o.target);
-    let active = true, inflight = 0, chain = Promise.resolve();
+    let active = true, inflight = 0, chain = Promise.resolve(), warnedNoSpeak = false;
     o.onStatus("ready", { provider: "pipeline", stt: c.pStt, chat: c.pChat, tts: c.pTts || "(off)", src: o.source, tgt: o.target });
 
     async function stt(wavB64) {
@@ -397,6 +397,12 @@ var DubProviders = (() => {
       o.onText({ translated: out });
       o.onText({ end: true });
       if (!c.pTts) return;
+      if (c.pTts === "browser") {
+        // free, offline: the browser's own speechSynthesis (only wired up for the tab-audio direction)
+        if (o.onSpeak) o.onSpeak(out, o.target);
+        else if (!warnedNoSpeak) { warnedNoSpeak = true; o.onStatus("no_tts", { reason: "browser TTS is not available for the microphone direction" }); }
+        return;
+      }
       const a = await tts(out);
       if (active) o.onAudio(a.pcm, a.rate);
     }

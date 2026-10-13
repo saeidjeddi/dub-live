@@ -95,7 +95,7 @@
             </div>
             <a class="hint" href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">دریافت کلید رایگان Groq ↗</a>
           </div>
-          <p class="hint">تشخیص گفتار و ترجمه رایگان‌اند؛ برای فارسی صدا ندارد و فقط زیرنویس می‌دهد (برای شنیدن، «صدای اصلی جلسه» را بالا ببرید).</p>
+          <p class="hint">تشخیص گفتار و ترجمه رایگان‌اند؛ Groq صدای فارسی/فرانسوی ندارد؛ پیش‌فرض «browser» است یعنی صدای خود مرورگر/سیستم (فقط برای صدای جلسه، نه میکروفون). اگر صدایی برای آن زبان نصب نباشد فقط زیرنویس می‌بینید.</p>
           <div class="field">
             <label for="gStt">مدل STT</label>
             <input id="gStt" type="text" placeholder="whisper-large-v3-turbo" autocomplete="off" spellcheck="false" />
@@ -105,8 +105,8 @@
             <input id="gChat" type="text" placeholder="openai/gpt-oss-20b" autocomplete="off" spellcheck="false" />
           </div>
           <div class="field">
-            <label for="gTts">مدل TTS (خالی = فقط زیرنویس)</label>
-            <input id="gTts" type="text" placeholder="خالی" autocomplete="off" spellcheck="false" />
+            <label for="gTts">TTS (browser = صدای مرورگر، خالی = فقط زیرنویس)</label>
+            <input id="gTts" type="text" placeholder="browser" autocomplete="off" spellcheck="false" />
           </div>
           <div class="field">
             <label for="gVoice">صدا (Voice)</label>

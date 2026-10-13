@@ -48,7 +48,7 @@ chrome.storage.local.get([...Object.values(FIELDS), "target"]).then((s) => {
   $("groqKey").value = s.groqKey || "";
   $("gStt").value = s.gStt || "";
   $("gChat").value = s.gChat || "";
-  $("gTts").value = s.gTts || "";
+  $("gTts").value = typeof s.gTts === "string" ? s.gTts : "browser";
   $("gVoice").value = s.gVoice || "";
   showProvider();
   $("userLang").value = s.userLang || s.target || "fa";

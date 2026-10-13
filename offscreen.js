@@ -27,6 +27,18 @@ function flushPlayback() {
   playState.next = 0;
 }
 
+function speakBrowser(text, lang) {
+  if (!voiceOn) return;
+  const base = String(lang || "").toLowerCase().split("-")[0];
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang;
+  const v = speechSynthesis.getVoices().find((x) => x.lang.toLowerCase().replace("_", "-").split("-")[0] === base);
+  if (v) u.voice = v;
+  else st({ stage: "tts_no_browser_voice", lang });
+  if (speechSynthesis.pending) speechSynthesis.cancel(); // keep up with the call instead of queueing
+  speechSynthesis.speak(u);
+}
+
 /* ---------- Engine A: streaming session (Gemini Live / OpenAI Realtime / pipeline, see providers.js) ---------- */
 function liveStart(cfg) {
   const L = (live = { active: true, session: null, sent: 0, recv: 0, cap: 0 });
@@ -40,6 +52,7 @@ function liveStart(cfg) {
       }),
     10000,
   );
+  speechSynthesis.getVoices(); // prime the voice list
   const QUIET = new Set(["heard", "said", "audio_sent", "audio_received"]);
   L.session = DubProviders.createSession({
     cfg: cfg.pc,
@@ -53,6 +66,7 @@ function liveStart(cfg) {
       __DubKit.playPcm(ctx, out, pcm, rate || 24000, playState);
     },
     onInterrupted: flushPlayback,
+    onSpeak: (text, lang) => speakBrowser(text, lang),
     onText: (x) => {
       if (x.translated) L.cap++;
       chrome.runtime.sendMessage({ type: "caption", ...x }).catch(() => {});
