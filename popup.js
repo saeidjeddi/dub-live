@@ -11,6 +11,11 @@ const FIELDS = {
   pChat: "pChat",
   pTts: "pTts",
   pVoice: "pVoice",
+  groqKey: "groqKey",
+  gStt: "gStt",
+  gChat: "gChat",
+  gTts: "gTts",
+  gVoice: "gVoice",
   userLang: "userLang",
   friendLang: "friendLang",
   origVol: "origVol",
@@ -40,6 +45,11 @@ chrome.storage.local.get([...Object.values(FIELDS), "target"]).then((s) => {
   // empty TTS model is meaningful (captions only), so only a never-saved value falls back to the placeholder
   $("pTts").value = typeof s.pTts === "string" ? s.pTts : "gpt-4o-mini-tts";
   $("pVoice").value = s.pVoice || "";
+  $("groqKey").value = s.groqKey || "";
+  $("gStt").value = s.gStt || "";
+  $("gChat").value = s.gChat || "";
+  $("gTts").value = s.gTts || "";
+  $("gVoice").value = s.gVoice || "";
   showProvider();
   $("userLang").value = s.userLang || s.target || "fa";
   $("friendLang").value = s.friendLang || "en";
@@ -63,6 +73,11 @@ const save = () => chrome.storage.local.set({
   pChat: $("pChat").value.trim(),
   pTts: $("pTts").value.trim(),
   pVoice: $("pVoice").value.trim(),
+  groqKey: $("groqKey").value.trim(),
+  gStt: $("gStt").value.trim(),
+  gChat: $("gChat").value.trim(),
+  gTts: $("gTts").value.trim(),
+  gVoice: $("gVoice").value.trim(),
   userLang: $("userLang").value.trim() || "fa",
   friendLang: $("friendLang").value.trim() || "en",
   // Keep the legacy field aligned for compatibility with old config readers.
@@ -111,6 +126,8 @@ $("start").onclick = async () => {
     const provider = $("provider").value;
     if (provider === "gemini") {
       if (!$("key").value.trim()) throw new Error("ابتدا Gemini API Key را وارد کنید.");
+    } else if (provider === "groq") {
+      if (!$("groqKey").value.trim()) throw new Error("ابتدا Groq API Key را وارد کنید.");
     } else {
       if (!$("openaiKey").value.trim()) throw new Error("ابتدا API Key را وارد کنید.");
       if (provider === "pipeline" || $("pBase").value.trim()) await ensureBaseAccess();
@@ -205,21 +222,3 @@ $("clear").onclick = async () => {
   showLog();
 };
 
-// One-click presets for the generic pipeline
-const PRESETS = {
-  presetGroq: {
-    pBase: "https://api.groq.com/openai/v1", pStt: "whisper-large-v3-turbo", pChat: "openai/gpt-oss-20b", pTts: "", pVoice: "",
-    note: "Groq: STT و ترجمه رایگان؛ TTS فارسی ندارد، پس فقط زیرنویس. برای شنیدن، «صدای اصلی جلسه» را بالا ببرید. کلید را از console.groq.com بگیرید.",
-  },
-  presetOpenai: {
-    pBase: "https://api.openai.com/v1", pStt: "gpt-4o-transcribe", pChat: "gpt-4o-mini", pTts: "gpt-4o-mini-tts", pVoice: "alloy",
-    note: "OpenAI: نیاز به اعتبار پولی در حساب API.",
-  },
-};
-Object.entries(PRESETS).forEach(([id, p]) => {
-  $(id).addEventListener("click", async () => {
-    for (const k of ["pBase", "pStt", "pChat", "pTts", "pVoice"]) $(k).value = p[k];
-    $("presetNote").textContent = p.note;
-    await save();
-  });
-});

@@ -572,8 +572,3 @@ summary::-webkit-details-marker {
 .hint:hover {
   text-decoration: underline;
 }
-
-.presets .btn {
-  display: inline-flex;
-  margin-inline-end: 6px;
-}

@@ -29,9 +29,25 @@ var DubProviders = (() => {
   };
 
   // storage.local keys that make up the provider configuration
-  const STORAGE_KEYS = ["provider", "key", "liveModel", "openaiKey", "oaRealtimeModel", "pBase", "pStt", "pChat", "pTts", "pVoice"];
+  const STORAGE_KEYS = ["provider", "key", "liveModel", "openaiKey", "oaRealtimeModel", "pBase", "pStt", "pChat", "pTts", "pVoice", "groqKey", "gStt", "gChat", "gTts", "gVoice"];
+
+  const GROQ = { base: "https://api.groq.com/openai/v1", stt: "whisper-large-v3-turbo", chat: "openai/gpt-oss-20b" };
 
   function configFromStorage(s) {
+    // "groq" is the generic pipeline pointed at Groq's OpenAI-compatible API (free tier, no Persian TTS)
+    if (s.provider === "groq") {
+      const g = (k, d) => (typeof s[k] === "string" && s[k].trim()) || d;
+      return {
+        provider: "pipeline",
+        geminiKey: "",
+        openaiKey: s.groqKey || "",
+        pBase: GROQ.base,
+        pStt: g("gStt", GROQ.stt),
+        pChat: g("gChat", GROQ.chat),
+        pTts: typeof s.gTts === "string" ? s.gTts.trim() : "", // empty = captions only
+        pVoice: g("gVoice", ""),
+      };
+    }
     const pick = (k) => (typeof s[k] === "string" && s[k].trim()) || DEFAULTS[k];
     return {
       provider: s.provider || "gemini",
