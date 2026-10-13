@@ -2,10 +2,11 @@
   "manifest_version": 3,
   "minimum_chrome_version": "116",
   "name": "Dub Live",
-  "version": "0.4.16",
-  "description": "ترجمه زنده دوطرفه برای مکالمات وب: صدای میکروفون را برای طرف مقابل ترجمه می‌کند و صدای او را برای شما برمی‌گرداند.",
+  "version": "0.5.0",
+  "description": "ترجمه زنده دوطرفه برای مکالمات وب با Gemini، OpenAI یا هر سرویس سازگار با OpenAI: صدای میکروفون را برای طرف مقابل ترجمه می‌کند و صدای او را برای شما برمی‌گرداند.",
   "permissions": [
     "activeTab",
+    "declarativeNetRequest",
     "offscreen",
     "scripting",
     "storage",
@@ -13,7 +14,8 @@
   ],
   "host_permissions": [
     "https://aistudio.google.com/*",
-    "https://generativelanguage.googleapis.com/*"
+    "https://generativelanguage.googleapis.com/*",
+    "https://api.openai.com/*"
   ],
   "web_accessible_resources": [
     {
@@ -71,5 +73,10 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ]
 }
