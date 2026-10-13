@@ -561,3 +561,14 @@ summary::-webkit-details-marker {
     transition: none !important;
   }
 }
+
+.hint {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--accent);
+  font-size: 11.5px;
+  text-decoration: none;
+}
+.hint:hover {
+  text-decoration: underline;
+}
