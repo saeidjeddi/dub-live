@@ -26,7 +26,7 @@
         <div id="ver"></div>
       </header>
 
-      <!-- Gemini -->
+      <!-- Provider -->
       <section class="card">
         <h2 class="card-title">
           <svg viewBox="0 0 24 24" class="ico" aria-hidden="true">
@@ -35,30 +35,143 @@
             <line x1="20" x2="20" y1="21" y2="16" /><line x1="20" x2="20" y1="12" y2="3" />
             <line x1="2" x2="6" y1="14" y2="14" /><line x1="10" x2="14" y1="8" y2="8" /><line x1="18" x2="22" y1="16" y2="16" />
           </svg>
-          تنظیمات Gemini
+          مدل ترجمه
         </h2>
 
         <div class="field">
-          <label for="key">Gemini API Key</label>
-          <div class="input-wrap">
-            <input id="key" type="password" placeholder="API Key" autocomplete="off" spellcheck="false" />
-            <button id="toggleKey" class="eye" type="button" aria-label="نمایش کلید" aria-pressed="false" title="نمایش / مخفی کردن">
-              <svg viewBox="0 0 24 24" class="ico eye-on" aria-hidden="true">
-                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
-              </svg>
-              <svg viewBox="0 0 24 24" class="ico eye-off" aria-hidden="true">
-                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
-                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
-                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
-                <line x1="2" x2="22" y1="2" y2="22" />
-              </svg>
-            </button>
+          <label for="provider">سرویس‌دهنده</label>
+          <select id="provider">
+            <option value="gemini">Gemini Live (گوگل)</option>
+            <option value="openai">OpenAI Realtime Translate</option>
+            <option value="groq">Groq (رایگان؛ بدون صدای فارسی)</option>
+            <option value="pipeline">پایپ‌لاین STT → LLM → TTS (OpenAI یا سازگار)</option>
+          </select>
+        </div>
+
+        <!-- Gemini -->
+        <div data-for="gemini">
+          <div class="field">
+            <label for="key">Gemini API Key</label>
+            <div class="input-wrap">
+              <input id="key" type="password" placeholder="API Key" autocomplete="off" spellcheck="false" />
+              <button class="eye" type="button" aria-label="نمایش کلید" aria-pressed="false" title="نمایش / مخفی کردن">
+                <svg viewBox="0 0 24 24" class="ico eye-on" aria-hidden="true">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
+                </svg>
+                <svg viewBox="0 0 24 24" class="ico eye-off" aria-hidden="true">
+                  <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                  <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                  <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                  <line x1="2" x2="22" y1="2" y2="22" />
+                </svg>
+              </button>
+            </div>
+            <a class="hint" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">دریافت کلید Gemini از Google AI Studio ↗</a>
+          </div>
+
+          <div class="field">
+            <label for="stt">مدل ترجمه زنده</label>
+            <input id="stt" type="text" placeholder="پیش‌فرض: gemini-3.5-live-translate-preview" autocomplete="off" spellcheck="false" />
           </div>
         </div>
 
-        <div class="field">
-          <label for="stt">مدل ترجمه زنده</label>
-          <input id="stt" type="text" placeholder="پیش‌فرض: gemini-3.5-live-translate-preview" autocomplete="off" spellcheck="false" />
+        <!-- Groq (free tier) -->
+        <div data-for="groq" hidden>
+          <div class="field">
+            <label for="groqKey">Groq API Key</label>
+            <div class="input-wrap">
+              <input id="groqKey" type="password" placeholder="gsk_..." autocomplete="off" spellcheck="false" />
+              <button class="eye" type="button" aria-label="نمایش کلید" aria-pressed="false" title="نمایش / مخفی کردن">
+                <svg viewBox="0 0 24 24" class="ico eye-on" aria-hidden="true">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
+                </svg>
+                <svg viewBox="0 0 24 24" class="ico eye-off" aria-hidden="true">
+                  <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                  <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                  <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                  <line x1="2" x2="22" y1="2" y2="22" />
+                </svg>
+              </button>
+            </div>
+            <a class="hint" href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">دریافت کلید رایگان Groq ↗</a>
+          </div>
+          <p class="hint">تشخیص گفتار و ترجمه رایگان‌اند؛ Groq صدای فارسی/فرانسوی ندارد؛ پیش‌فرض «browser» است یعنی صدای خود مرورگر/سیستم (فقط برای صدای جلسه، نه میکروفون). اگر صدایی برای آن زبان نصب نباشد فقط زیرنویس می‌بینید.</p>
+          <div class="field">
+            <label for="gStt">مدل STT</label>
+            <input id="gStt" type="text" placeholder="whisper-large-v3-turbo" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="field">
+            <label for="gChat">مدل ترجمه (Chat)</label>
+            <input id="gChat" type="text" placeholder="openai/gpt-oss-20b" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="field">
+            <label for="gTts">TTS (browser = صدای مرورگر، خالی = فقط زیرنویس)</label>
+            <input id="gTts" type="text" placeholder="browser" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="field">
+            <label for="gVoice">صدا (Voice)</label>
+            <input id="gVoice" type="text" placeholder="خالی" autocomplete="off" spellcheck="false" />
+          </div>
+        </div>
+
+        <!-- OpenAI / OpenAI-compatible -->
+        <div data-for="openai pipeline" hidden>
+          <div class="field">
+            <label for="openaiKey">OpenAI API Key (یا کلید سرویس سازگار)</label>
+            <div class="input-wrap">
+              <input id="openaiKey" type="password" placeholder="sk-..." autocomplete="off" spellcheck="false" />
+              <button class="eye" type="button" aria-label="نمایش کلید" aria-pressed="false" title="نمایش / مخفی کردن">
+                <svg viewBox="0 0 24 24" class="ico eye-on" aria-hidden="true">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
+                </svg>
+                <svg viewBox="0 0 24 24" class="ico eye-off" aria-hidden="true">
+                  <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                  <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                  <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                  <line x1="2" x2="22" y1="2" y2="22" />
+                </svg>
+              </button>
+            </div>
+            <a class="hint" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">دریافت کلید OpenAI (نیاز به اعتبار حساب) ↗</a>
+          </div>
+
+          <div class="field" data-for="openai" hidden>
+            <label for="oaRealtimeModel">مدل Realtime</label>
+            <input id="oaRealtimeModel" type="text" placeholder="پیش‌فرض: gpt-realtime-translate" autocomplete="off" spellcheck="false" />
+          </div>
+
+          <details class="help" id="pipeBox">
+            <summary>
+              <svg viewBox="0 0 24 24" class="ico" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="16" y2="12" /><line x1="12" x2="12.01" y1="8" y2="8" />
+              </svg>
+              پایپ‌لاین STT → LLM → TTS
+            </summary>
+            <ul>
+              <li>برای زبان‌هایی که Realtime پشتیبانی نمی‌کند (مثلاً خروجی فارسی) به‌طور خودکار استفاده می‌شود.</li>
+              <li>برای Groq / سرور محلی و ... آدرس و نام مدل‌ها را تغییر دهید؛ مدل TTS را خالی بگذارید تا فقط زیرنویس داشته باشید.</li>
+            </ul>
+            <div class="field">
+              <label for="pBase">Base URL</label>
+              <input id="pBase" type="text" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false" />
+            </div>
+            <div class="field">
+              <label for="pStt">مدل STT</label>
+              <input id="pStt" type="text" placeholder="gpt-4o-transcribe" autocomplete="off" spellcheck="false" />
+            </div>
+            <div class="field">
+              <label for="pChat">مدل ترجمه (Chat)</label>
+              <input id="pChat" type="text" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false" />
+            </div>
+            <div class="field">
+              <label for="pTts">مدل TTS (خالی = بدون صدا)</label>
+              <input id="pTts" type="text" placeholder="gpt-4o-mini-tts" autocomplete="off" spellcheck="false" />
+            </div>
+            <div class="field">
+              <label for="pVoice">صدا (Voice)</label>
+              <input id="pVoice" type="text" placeholder="alloy" autocomplete="off" spellcheck="false" />
+            </div>
+          </details>
         </div>
 
         <div class="lang-row">
@@ -112,8 +225,8 @@
           <ul>
             <li>صدای دوستتان به زبان شما پخش می‌شود و گفتار شما پس از ترجمه از میکروفون جلسه برای او فرستاده می‌شود.</li>
             <li>وقتی «ترجمهٔ گفتار من» روشن است، صدای خام شما به تماس فرستاده نمی‌شود.</li>
-            <li>اگر آن را خاموش کنید، میکروفون شما بدون ترجمه و دست‌نخورده به تماس می‌رود و چیزی از میکروفون به Gemini ارسال نمی‌شود.</li>
-            <li>صدای جلسه و میکروفون با API Key شما به Gemini ارسال می‌شود.</li>
+            <li>اگر آن را خاموش کنید، میکروفون شما بدون ترجمه و دست‌نخورده به تماس می‌رود و چیزی از میکروفون به سرویس‌دهنده ارسال نمی‌شود.</li>
+            <li>صدای جلسه و میکروفون با API Key شما به سرویس‌دهنده‌ی انتخابی (Gemini یا OpenAI/سرور سازگار) ارسال می‌شود.</li>
             <li>اگر تماس از قبل برقرار است، بعد از شروع ترجمه یک‌بار دوباره به تماس وصل شوید.</li>
           </ul>
         </details>
