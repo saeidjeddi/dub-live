@@ -27,63 +27,147 @@ function flushPlayback() {
   playState.next = 0;
 }
 
-function speakBrowser(text, lang) {
-  if (!voiceOn) return;
-  const base = String(lang || "").toLowerCase().split("-")[0];
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = lang;
-  const v = speechSynthesis.getVoices().find((x) => x.lang.toLowerCase().replace("_", "-").split("-")[0] === base);
-  if (v) u.voice = v;
-  else st({ stage: "tts_no_browser_voice", lang });
-  if (speechSynthesis.pending) speechSynthesis.cancel(); // keep up with the call instead of queueing
-  speechSynthesis.speak(u);
-}
-
-/* ---------- Engine A: streaming session (Gemini Live / OpenAI Realtime / pipeline, see providers.js) ---------- */
+/* ---------- Engine A: Live API (streaming) ---------- */
 function liveStart(cfg) {
-  const L = (live = { active: true, session: null, sent: 0, recv: 0, cap: 0 });
+  const L = (live = {
+    active: true,
+    ready: false,
+    tries: 0,
+    variant: 0,
+    ws: null,
+    sent: 0,
+    recv: 0,
+    cap: 0,
+  });
   L.statTimer = setInterval(
     () =>
       st({
         stage: "live_stats",
+        ready: L.ready,
+        wsState: L.ws && L.ws.readyState,
         sentChunks: L.sent,
         audioChunksReceived: L.recv,
         captionFragments: L.cap,
       }),
     10000,
   );
-  speechSynthesis.getVoices(); // prime the voice list
-  const QUIET = new Set(["heard", "said", "audio_sent", "audio_received"]);
-  L.session = DubProviders.createSession({
-    cfg: cfg.pc,
-    source: cfg.srcLang, // language of the call
-    target: cfg.lang, // language the user wants to hear
-    keepAlive: false,
-    onAudio: (pcm, rate) => {
-      if (!ctx) return;
-      L.recv++;
-      if (playState.next - ctx.currentTime > 10) flushPlayback(); // fell too far behind: resync
-      __DubKit.playPcm(ctx, out, pcm, rate || 24000, playState);
-    },
-    onInterrupted: flushPlayback,
-    onSpeak: (text, lang) => speakBrowser(text, lang),
-    onText: (x) => {
-      if (x.translated) L.cap++;
-      chrome.runtime.sendMessage({ type: "caption", ...x }).catch(() => {});
-    },
-    onStatus: (stage, extra) => {
-      if (!QUIET.has(stage)) st({ stage: "live_" + stage, ...extra });
-    },
-  });
+  const connect = () => {
+    const url =
+      "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=" +
+      encodeURIComponent(cfg.key);
+    const ws = (L.ws = new WebSocket(url));
+    L.ready = false;
+    st({ stage: "live_connecting", model: cfg.liveModel, try: L.tries });
+    ws.onopen = () => {
+      // The server's real schema differs from the docs example (it rejected inputAudioTranscription inside generationConfig),
+      // so we try schema variants in order and move to the next one whenever the server answers 1007 (invalid payload).
+      const tr = {
+        translationConfig: {
+          targetLanguageCode: cfg.lang || "fa",
+          echoTargetLanguage: false,
+        },
+      };
+      const V = L.variant;
+      const gen = { responseModalities: ["AUDIO"] };
+      const setup = { model: "models/" + cfg.liveModel, generationConfig: gen };
+      if (V === 0 || V === 2) Object.assign(gen, tr);
+      else Object.assign(setup, tr);
+      if (V === 0 || V === 1) {
+        setup.inputAudioTranscription = {};
+        setup.outputAudioTranscription = {};
+      }
+      st({
+        stage: "live_setup_variant",
+        variant: V,
+        setup: JSON.stringify(setup),
+      });
+      ws.send(JSON.stringify({ setup }));
+    };
+    ws.onmessage = async (e) => {
+      let m;
+      try {
+        m = JSON.parse(
+          typeof e.data === "string" ? e.data : await e.data.text(),
+        );
+      } catch {
+        return;
+      }
+      // sessionResumptionUpdate / usageMetadata arrive every ~2s and would flush useful entries out of the log
+      if (!m.setupComplete && !m.serverContent && !m.sessionResumptionUpdate && !m.usageMetadata)
+        st({ stage: "live_msg", raw: JSON.stringify(m).slice(0, 400) });
+      if (m.setupComplete) {
+        L.ready = true;
+        L.tries = 0;
+        st({ stage: "live_ready", model: cfg.liveModel, variant: L.variant });
+        return;
+      }
+      const sc = m.serverContent;
+      if (sc) {
+        if (sc.interrupted) flushPlayback();
+        for (const p of (sc.modelTurn && sc.modelTurn.parts) || []) {
+          if (p.inlineData && p.inlineData.data && ctx) {
+            L.recv++;
+            if (playState.next - ctx.currentTime > 10) flushPlayback(); // fell too far behind: resync
+            __DubKit.playPcm(ctx, out, p.inlineData.data, 24000, playState);
+          }
+        }
+        const cap = (x) =>
+          chrome.runtime.sendMessage({ type: "caption", ...x }).catch(() => {});
+        if (sc.inputTranscription && sc.inputTranscription.text)
+          cap({ heard: sc.inputTranscription.text });
+        if (sc.outputTranscription && sc.outputTranscription.text) {
+          L.cap++;
+          cap({ translated: sc.outputTranscription.text });
+        }
+        if (sc.turnComplete || sc.generationComplete) cap({ end: true });
+      }
+    };
+    ws.onerror = () =>
+      st({
+        stage: "live_ws_error",
+        note: "websocket error event (details are in the close event)",
+      });
+    ws.onclose = (e) => {
+      const wasReady = L.ready;
+      L.ready = false;
+      st({ stage: "live_closed", code: e.code, reason: e.reason, wasReady });
+      if (!L.active) return;
+      if (!wasReady && e.code === 1007 && L.variant < 3) {
+        L.variant++;
+        return connect();
+      } // payload rejected: try next schema
+      if (L.tries++ < 5)
+        setTimeout(() => L.active && connect(), 1000 * L.tries);
+      else
+        st({
+          stage: "error",
+          error: `live: gave up. last close ${e.code} ${e.reason}`,
+        });
+    };
+  };
+  connect();
 
   const node = new AudioWorkletNode(ctx, "pcm-tap", {
     channelCount: 1,
     channelCountMode: "explicit",
   });
   node.port.onmessage = (e) => {
-    if (!live) return;
+    if (!live || !live.ready || live.ws.readyState !== 1) return;
+    const f = e.data,
+      i16 = new Int16Array(f.length);
+    for (let i = 0; i < f.length; i++)
+      i16[i] = Math.max(-1, Math.min(1, f[i])) * 0x7fff;
+    const u8 = new Uint8Array(i16.buffer);
+    let bin = "";
+    for (let i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]);
     live.sent++;
-    live.session.sendFrame(DubProviders.f32ToPcm16B64(e.data));
+    live.ws.send(
+      JSON.stringify({
+        realtimeInput: {
+          audio: { data: btoa(bin), mimeType: "audio/pcm;rate=16000" },
+        },
+      }),
+    );
   };
   return node;
 }
@@ -216,7 +300,7 @@ async function stop() {
     clearInterval(live.statTimer);
     live.active = false;
     try {
-      live.session.close();
+      live.ws.close();
     } catch {}
     live = null;
   }
