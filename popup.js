@@ -125,30 +125,3 @@ $("voiceOn").addEventListener("change", () => {
 });
 
 $("ver").textContent = "v" + chrome.runtime.getManifest().version;
-const ago = (o) => Math.round((Date.now() - o.t) / 1000) + "s ago";
-const showStatus = async () => {
-  const { status, level, micLevel } = await chrome.storage.local.get(["status", "level", "micLevel"]);
-  $("dbg").textContent = "status: " + (status ? JSON.stringify(status) + " " + ago(status) : "none") +
-    "\nlevel: " + (level ? JSON.stringify(level) + " " + ago(level) : "none") +
-    "\nmic level: " + (micLevel ? JSON.stringify(micLevel) + " " + ago(micLevel) : "none");
-};
-const showLog = async () => {
-  const { log = [] } = await chrome.storage.local.get("log");
-  $("log").textContent = log.slice().reverse().map((entry) => JSON.stringify(entry)).join("\n");
-};
-setInterval(() => { showStatus(); showLog(); }, 1000);
-showStatus();
-showLog();
-
-$("copy").onclick = async () => {
-  const { log = [], status, level, micLevel } = await chrome.storage.local.get(["log", "status", "level", "micLevel"]);
-  await navigator.clipboard.writeText(JSON.stringify({ version: chrome.runtime.getManifest().version, status, level, micLevel, log }, null, 1));
-  $("st").textContent = "لاگ کپی شد ✅";
-};
-$("clear").onclick = async () => {
-  await chrome.storage.local.remove(["log", "status", "level", "micLevel"]);
-  chrome.action.setBadgeText({ text: "" });
-  $("st").textContent = "لاگ پاک شد 🧹";
-  showStatus();
-  showLog();
-};
