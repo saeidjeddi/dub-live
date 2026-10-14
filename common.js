@@ -149,5 +149,5 @@ var __DubKit = (() => {
     return proc;
   }
 
-  return { toWavBase64, playPcm, tap, makeSegmenter };
+  return { toWavBase64, playPcm, tap };
 })();

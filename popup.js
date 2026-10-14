@@ -1,21 +1,8 @@
 const $ = (id) => document.getElementById(id);
 
 const FIELDS = {
-  provider: "provider",
   key: "key",
   stt: "liveModel",
-  openaiKey: "openaiKey",
-  oaRealtimeModel: "oaRealtimeModel",
-  pBase: "pBase",
-  pStt: "pStt",
-  pChat: "pChat",
-  pTts: "pTts",
-  pVoice: "pVoice",
-  groqKey: "groqKey",
-  gStt: "gStt",
-  gChat: "gChat",
-  gTts: "gTts",
-  gVoice: "gVoice",
   userLang: "userLang",
   friendLang: "friendLang",
   origVol: "origVol",
@@ -25,32 +12,9 @@ const FIELDS = {
   micOn: "micOn",
 };
 
-const DEFAULT_BASE = "https://api.openai.com/v1";
-const showProvider = () => {
-  const p = $("provider").value;
-  document.querySelectorAll("[data-for]").forEach((el) => {
-    el.hidden = !el.dataset.for.split(" ").includes(p);
-  });
-};
-
 chrome.storage.local.get([...Object.values(FIELDS), "target"]).then((s) => {
-  $("provider").value = s.provider || "gemini";
   $("key").value = s.key || "";
   $("stt").value = s.liveModel || "";
-  $("openaiKey").value = s.openaiKey || "";
-  $("oaRealtimeModel").value = s.oaRealtimeModel || "";
-  $("pBase").value = s.pBase || "";
-  $("pStt").value = s.pStt || "";
-  $("pChat").value = s.pChat || "";
-  // empty TTS model is meaningful (captions only), so only a never-saved value falls back to the placeholder
-  $("pTts").value = typeof s.pTts === "string" ? s.pTts : "gpt-4o-mini-tts";
-  $("pVoice").value = s.pVoice || "";
-  $("groqKey").value = s.groqKey || "";
-  $("gStt").value = s.gStt || "";
-  $("gChat").value = s.gChat || "";
-  $("gTts").value = typeof s.gTts === "string" ? s.gTts : "browser";
-  $("gVoice").value = s.gVoice || "";
-  showProvider();
   $("userLang").value = s.userLang || s.target || "fa";
   $("friendLang").value = s.friendLang || "en";
   $("origVol").value = s.origVol == null ? 0 : s.origVol;
@@ -63,21 +27,8 @@ chrome.storage.local.get([...Object.values(FIELDS), "target"]).then((s) => {
 
 const showVol = () => { $("vv").textContent = $("origVol").value + "%"; };
 const save = () => chrome.storage.local.set({
-  provider: $("provider").value,
   key: $("key").value.trim(),
   liveModel: $("stt").value.trim(),
-  openaiKey: $("openaiKey").value.trim(),
-  oaRealtimeModel: $("oaRealtimeModel").value.trim(),
-  pBase: $("pBase").value.trim(),
-  pStt: $("pStt").value.trim(),
-  pChat: $("pChat").value.trim(),
-  pTts: $("pTts").value.trim(),
-  pVoice: $("pVoice").value.trim(),
-  groqKey: $("groqKey").value.trim(),
-  gStt: $("gStt").value.trim(),
-  gChat: $("gChat").value.trim(),
-  gTts: $("gTts").value.trim(),
-  gVoice: $("gVoice").value.trim(),
   userLang: $("userLang").value.trim() || "fa",
   friendLang: $("friendLang").value.trim() || "en",
   // Keep the legacy field aligned for compatibility with old config readers.
@@ -92,18 +43,6 @@ const save = () => chrome.storage.local.set({
 
 Object.keys(FIELDS).forEach((id) => $(id).addEventListener("change", save));
 $("origVol").addEventListener("input", showVol);
-$("provider").addEventListener("change", showProvider);
-
-// A custom OpenAI-compatible server needs host permission; must be requested from a user gesture.
-async function ensureBaseAccess() {
-  const raw = $("pBase").value.trim() || DEFAULT_BASE;
-  let origin;
-  try { origin = new URL(raw).origin; } catch { throw new Error("Base URL نامعتبر است."); }
-  if (origin === new URL(DEFAULT_BASE).origin) return;
-  const origins = [origin + "/*"];
-  if (await chrome.permissions.contains({ origins })) return;
-  if (!(await chrome.permissions.request({ origins }))) throw new Error("دسترسی به " + origin + " داده نشد.");
-}
 
 async function installMeetingBridge(tabId) {
   // The page-world hook replaces the outgoing WebRTC microphone track.
@@ -121,18 +60,11 @@ async function installMeetingBridge(tabId) {
 }
 
 $("start").onclick = async () => {
+  await save();
   $("start").disabled = true;
   try {
-    const provider = $("provider").value;
-    if (provider === "gemini") {
-      if (!$("key").value.trim()) throw new Error("ابتدا Gemini API Key را وارد کنید.");
-    } else if (provider === "groq") {
-      if (!$("groqKey").value.trim()) throw new Error("ابتدا Groq API Key را وارد کنید.");
-    } else {
-      if (!$("openaiKey").value.trim()) throw new Error("ابتدا API Key را وارد کنید.");
-      if (provider === "pipeline" || $("pBase").value.trim()) await ensureBaseAccess();
-    }
-    await save();
+    const key = $("key").value.trim();
+    if (!key) throw new Error("ابتدا Gemini API Key را وارد کنید.");
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id || !/^https?:/.test(tab.url || "")) {
       throw new Error("صفحهٔ جلسه باید یک وب‌سایت http یا https باشد.");
@@ -159,7 +91,7 @@ $("start").onclick = async () => {
     }
 
     const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
-    const res = await chrome.runtime.sendMessage({
+    await chrome.runtime.sendMessage({
       type: "startTab",
       streamId,
       tabId: tab.id,
@@ -167,7 +99,6 @@ $("start").onclick = async () => {
       friendLang: $("friendLang").value.trim() || "en",
       micOn,
     });
-    if (res?.error) throw new Error(res.error);
     $("st").textContent = micOn
       ? "مترجم جلسه فعال است؛ اگر تماس باز است دوباره به تماس وصل شوید."
       : "مترجم جلسه فعال است؛ گفتار شما ترجمه نمی‌شود.";
@@ -221,4 +152,3 @@ $("clear").onclick = async () => {
   showStatus();
   showLog();
 };
-

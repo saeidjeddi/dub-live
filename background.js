@@ -1,5 +1,3 @@
-importScripts("common.js", "providers.js");
-
 let coolUntil = 0,
   inflight = 0;
 let meetingMicLive = null;
@@ -17,9 +15,22 @@ const PROMPTS = {
     "Transcribe this English speech and translate it into natural, colloquial Persian (Farsi script). Output ONLY the Persian translation. If there is no intelligible speech, output exactly: NO_SPEECH",
 };
 
+const LANGUAGE_NAMES = {
+  en: "English", fa: "Persian (Farsi)", es: "Spanish", fr: "French", de: "German",
+  ar: "Arabic", ru: "Russian", zh: "Chinese", ja: "Japanese", ko: "Korean",
+  tr: "Turkish", it: "Italian", pt: "Portuguese", hi: "Hindi", nl: "Dutch",
+  sv: "Swedish", pl: "Polish", ur: "Urdu", he: "Hebrew", uk: "Ukrainian",
+  id: "Indonesian", vi: "Vietnamese", el: "Greek", th: "Thai", ro: "Romanian",
+};
+
+function languageName(code) {
+  const normalized = String(code || "").trim().toLowerCase().split("-")[0];
+  return LANGUAGE_NAMES[normalized] || String(code || "the specified language").trim();
+}
+
 function meetingTranslationPrompt(source, target) {
-  const sourceName = DubProviders.languageName(source);
-  const targetName = DubProviders.languageName(target);
+  const sourceName = languageName(source);
+  const targetName = languageName(target);
   return `Transcribe this ${sourceName} speech and translate it into natural, concise ${targetName}. Output ONLY the ${targetName} translation. If there is no intelligible speech, output exactly: NO_SPEECH`;
 }
 
@@ -257,73 +268,125 @@ function stopMeetingMicLive() {
   meetingMicLive = null;
   if (!session) return;
   session.stopped = true;
-  try { session.impl?.close(); } catch {}
+  clearInterval(session.keepAliveTimer);
+  clearTimeout(session.pendingTimer);
+  try { session.ws?.close(1000, "stopped"); } catch {}
 }
 
-// Translates the user's own microphone (userLang -> friendLang) with the selected provider.
 function startMeetingMicLive(config) {
   stopMeetingMicLive();
   const session = meetingMicLive = {
     tabId: config.tabId,
+    key: config.key,
+    model: config.model || "gemini-3.5-live-translate-preview",
+    target: config.target || "en",
+    source: config.source || "fa",
     trackId: null,
+    variant: 0,
+    tries: 0,
+    ready: false,
     stopped: false,
+    pending: [],
+    ws: null,
+    sentFrames: 0,
     receivedChunks: 0,
     hookCount: 0,
-    impl: null,
   };
-  const toPage = (extra) =>
-    chrome.tabs.sendMessage(session.tabId, { type: "meetingMicAudio", trackId: session.trackId, ...extra }).catch(() => {});
-  session.impl = DubProviders.createSession({
-    cfg: config.cfg,
-    source: config.source,
-    target: config.target,
-    keepAlive: true,
-    onAudio: (pcm, rate) => {
-      if (meetingMicLive !== session || !session.trackId) return;
-      session.receivedChunks++;
-      if (session.receivedChunks === 1 || session.receivedChunks % 25 === 0)
-        logMeetingMic("audio_to_page", { chunks: session.receivedChunks, trackId: session.trackId });
-      toPage({ pcm, rate });
-    },
-    onInterrupted: () => { if (meetingMicLive === session && session.trackId) toPage({ interrupted: true }); },
-    onText: () => {},
-    onStatus: (stage, extra) => { if (meetingMicLive === session) logMeetingMic(stage, extra); },
-  });
-}
 
-// OpenAI's translation WebSocket authenticates with an Authorization header, which page-style WebSockets
-// cannot set. This rule adds it (only for requests initiated by this extension) while a session runs.
-const OPENAI_RULE_ID = 9001;
-async function setOpenAIAuthRule(key) {
-  let { oaSafetyId } = await chrome.storage.local.get("oaSafetyId");
-  if (!oaSafetyId) {
-    oaSafetyId = crypto.randomUUID();
-    await chrome.storage.local.set({ oaSafetyId });
-  }
-  await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [OPENAI_RULE_ID],
-    addRules: [{
-      id: OPENAI_RULE_ID,
-      priority: 1,
-      action: {
-        type: "modifyHeaders",
-        requestHeaders: [
-          { header: "Authorization", operation: "set", value: "Bearer " + key },
-          { header: "OpenAI-Safety-Identifier", operation: "set", value: oaSafetyId },
-        ],
-      },
-      condition: {
-        urlFilter: "||api.openai.com/v1/realtime/translations",
-        resourceTypes: ["websocket"],
-        initiatorDomains: [chrome.runtime.id],
-      },
-    }],
-  });
+  const connect = () => {
+    if (meetingMicLive !== session || session.stopped) return;
+    const url = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=" + encodeURIComponent(session.key);
+    const ws = session.ws = new WebSocket(url);
+    session.ready = false;
+    logMeetingMic("connecting", { model: session.model, source: session.source, target: session.target, variant: session.variant });
+    ws.onopen = () => {
+      const translation = { translationConfig: { targetLanguageCode: session.target, echoTargetLanguage: false } };
+      const generationConfig = { responseModalities: ["AUDIO"] };
+      const setup = { model: "models/" + session.model, generationConfig };
+      if (session.variant === 0 || session.variant === 2) Object.assign(generationConfig, translation);
+      else Object.assign(setup, translation);
+      if (session.variant === 0 || session.variant === 1) {
+        setup.inputAudioTranscription = {};
+        setup.outputAudioTranscription = {};
+      }
+      ws.send(JSON.stringify({ setup }));
+    };
+    ws.onmessage = async (event) => {
+      let message;
+      try { message = JSON.parse(typeof event.data === "string" ? event.data : await event.data.text()); }
+      catch { return; }
+      if (message.setupComplete) {
+        session.ready = true;
+        session.tries = 0;
+        clearInterval(session.keepAliveTimer);
+        session.keepAliveTimer = setInterval(() => {
+          if (meetingMicLive !== session || !session.ready || session.ws?.readyState !== WebSocket.OPEN) return;
+          const silence = btoa(String.fromCharCode(...new Uint8Array(320)));
+          session.ws.send(JSON.stringify({ realtimeInput: { audio: { data: silence, mimeType: "audio/pcm;rate=16000" } } }));
+        }, 20000);
+        logMeetingMic("ready", { source: session.source, target: session.target, variant: session.variant });
+        flushPending();
+        return;
+      }
+      const content = message.serverContent;
+      if (!content) {
+        if (message.error) logMeetingMic("error", { error: JSON.stringify(message.error).slice(0, 500) });
+        return;
+      }
+      // Diagnostics: what the model heard from the microphone and what it said back.
+      // Shows whether a repeat comes from duplicated input, the model's output, or playback.
+      if (content.inputTranscription?.text) logMeetingMic("heard", { text: content.inputTranscription.text });
+      if (content.outputTranscription?.text) logMeetingMic("said", { text: content.outputTranscription.text });
+      if (content.interrupted && session.trackId) {
+        chrome.tabs.sendMessage(session.tabId, { type: "meetingMicAudio", trackId: session.trackId, interrupted: true }).catch(() => {});
+      }
+      for (const part of content.modelTurn?.parts || []) {
+        const inline = part.inlineData || part.inline_data;
+        if (!inline?.data || !session.trackId) continue;
+        session.receivedChunks++;
+        if (session.receivedChunks === 1 || session.receivedChunks % 25 === 0) {
+          logMeetingMic("audio_received", { chunks: session.receivedChunks, trackId: session.trackId });
+        }
+        const sampleRate = +(String(inline.mimeType || inline.mime_type || "").match(/rate=(\d+)/)?.[1] || 24000);
+        chrome.tabs.sendMessage(session.tabId, {
+          type: "meetingMicAudio", trackId: session.trackId, pcm: inline.data, rate: sampleRate,
+        }).catch(() => {});
+      }
+    };
+    ws.onerror = () => logMeetingMic("websocket_error");
+    ws.onclose = (event) => {
+      const wasReady = session.ready;
+      session.ready = false;
+      clearInterval(session.keepAliveTimer);
+      clearTimeout(session.pendingTimer);
+      logMeetingMic("closed", { code: event.code, reason: event.reason, wasReady });
+      if (meetingMicLive !== session || session.stopped) return;
+      if (!wasReady && event.code === 1007 && session.variant < 3) {
+        session.variant++;
+        connect();
+      } else if (session.tries++ < 5) {
+        setTimeout(connect, Math.min(5000, 500 * session.tries));
+      }
+    };
+  };
+
+  const sendFrame = (frame) => {
+    if (meetingMicLive !== session || !session.ready || session.ws?.readyState !== WebSocket.OPEN) return;
+    session.ws.send(JSON.stringify({ realtimeInput: { audio: { data: frame.pcm, mimeType: "audio/pcm;rate=16000" } } }));
+    session.sentFrames++;
+    if (session.sentFrames === 1 || session.sentFrames % 50 === 0) {
+      logMeetingMic("audio_sent", { frames: session.sentFrames, trackId: session.trackId });
+    }
+  };
+  session.sendFrame = sendFrame;
+  const flushPending = () => {
+    if (meetingMicLive !== session || !session.ready || session.ws?.readyState !== WebSocket.OPEN || !session.pending.length) return;
+    sendFrame(session.pending.shift());
+    if (session.pending.length) session.pendingTimer = setTimeout(flushPending, 100);
+  };
+  session.flushPending = flushPending;
+  connect();
 }
-const clearOpenAIAuthRule = () =>
-  chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [OPENAI_RULE_ID] }).catch(() => {});
-chrome.runtime.onStartup.addListener(clearOpenAIAuthRule);
-chrome.runtime.onInstalled.addListener(clearOpenAIAuthRule);
 
 chrome.runtime.onMessage.addListener((msg, _sender, send) => {
   if (msg.target === "offscreen") return;
@@ -338,7 +401,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, send) => {
   if (msg.type === "meetingMicFrame") {
     const session = meetingMicLive;
     if (!session || session.tabId !== _sender.tab?.id || !msg.pcm) return;
-    // Only one microphone route may feed the translation session. If the page exposes the same mic
+    // Only one microphone route may feed the Gemini session. If the page exposes the same mic
     // through two tracks (clones / re-negotiation), forwarding both would send every word twice
     // and the translation would repeat. A different track is accepted only after the active one
     // has been silent for 1.5s (a genuine track swap).
@@ -353,7 +416,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, send) => {
     }
     session.trackId = msg.trackId || session.trackId;
     session.lastFrameAt = now;
-    session.impl?.sendFrame(msg.pcm);
+    const frame = { pcm: msg.pcm };
+    if (session.pending.length >= 30) session.pending.shift();
+    session.pending.push(frame);
+    if (session.ready) session.flushPending();
     return;
   }
   if (msg.type === "dub") {
@@ -398,10 +464,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, send) => {
     (async () => {
       await chrome.storage.local.set({ log: [] });
       const s = await chrome.storage.local.get([
-        ...DubProviders.STORAGE_KEYS,
         "ttsMode",
         "engine",
+        "key",
         "voice",
+        "liveModel",
         "target",
         "userLang",
         "friendLang",
@@ -412,19 +479,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, send) => {
         "micOn",
       ]);
       const engine = s.engine || "live";
-      const pc = DubProviders.configFromStorage(s);
-      const userLang = msg.userLang || s.userLang || s.target || "fa";
-      const friendLang = msg.friendLang || s.friendLang || "en";
+      const liveModel = s.liveModel || "gemini-3.5-live-translate-preview";
       const micOn = msg.micOn ?? (s.micOn !== false);
-      if (!DubProviders.keyFor(pc)) {
-        send({ error: "API key not set for provider: " + pc.provider });
-        return;
-      }
-      if (pc.provider === "openai") await setOpenAIAuthRule(pc.openaiKey);
-      else await clearOpenAIAuthRule();
-      // Translating the user's own speech is optional: skip the mic session entirely when off.
+      // Translating the user's own speech is optional: skip the Gemini mic session entirely when off.
       if (micOn) {
-        startMeetingMicLive({ tabId: msg.tabId, cfg: pc, source: userLang, target: friendLang });
+        startMeetingMicLive({
+          tabId: msg.tabId,
+          key: s.key,
+          model: liveModel,
+          source: msg.userLang || s.userLang || "fa",
+          target: msg.friendLang || s.friendLang || "en",
+        });
       } else {
         stopMeetingMicLive();
       }
@@ -456,10 +521,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, send) => {
         streamId: msg.streamId,
         engine,
         ttsMode: s.ttsMode || "browser",
+        key: s.key,
         voice: s.voice,
-        pc,
-        lang: userLang, // language the user wants to hear
-        srcLang: friendLang, // language spoken in the call
+        liveModel,
+        lang: msg.userLang || s.userLang || s.target || "fa",
         origVol: s.origVol == null ? 20 : s.origVol,
         voiceOn: s.voiceOn !== false,
       });
@@ -496,7 +561,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, send) => {
   }
   if (msg.type === "stopTab") {
     stopMeetingMicLive();
-    clearOpenAIAuthRule();
     chrome.storage.local.get(["captionTabId", "meetingTabId"]).then((s) => {
       if (s.captionTabId != null)
         chrome.tabs
