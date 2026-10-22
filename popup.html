@@ -21,10 +21,18 @@
         </div>
         <div class="title">
           <h1>Dub Live</h1>
-          <p>مترجم زنده جلسه</p>
+          <p data-i18n="tagline">مترجم زنده جلسه</p>
         </div>
         <div id="ver"></div>
       </header>
+
+      <!-- Interface language (optional) -->
+      <div class="ui-lang">
+        <select id="uiLang" aria-label="Interface language" title="Interface language">
+          <option value="fa">فارسی</option>
+          <option value="en">English</option>
+          </select>
+      </div>
 
       <!-- Gemini -->
       <section class="card">
@@ -35,14 +43,14 @@
             <line x1="20" x2="20" y1="21" y2="16" /><line x1="20" x2="20" y1="12" y2="3" />
             <line x1="2" x2="6" y1="14" y2="14" /><line x1="10" x2="14" y1="8" y2="8" /><line x1="18" x2="22" y1="16" y2="16" />
           </svg>
-          تنظیمات Gemini
+          <span data-i18n="geminiSettings">تنظیمات Gemini</span>
         </h2>
 
         <div class="field">
-          <label for="key">Gemini API Key</label>
+          <label for="key" data-i18n="apiKey">Gemini API Key</label>
           <div class="input-wrap">
-            <input id="key" type="password" placeholder="API Key" autocomplete="off" spellcheck="false" />
-            <button id="toggleKey" class="eye" type="button" aria-label="نمایش کلید" aria-pressed="false" title="نمایش / مخفی کردن">
+            <input id="key" type="password" placeholder="API Key" data-i18n-ph="apiKeyPh" autocomplete="off" spellcheck="false" />
+            <button id="toggleKey" class="eye" type="button" aria-label="نمایش کلید" aria-pressed="false" title="نمایش / مخفی کردن" data-i18n-title="toggleKeyTitle">
               <svg viewBox="0 0 24 24" class="ico eye-on" aria-hidden="true">
                 <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
               </svg>
@@ -54,22 +62,27 @@
               </svg>
             </button>
           </div>
-          <a class="hint" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">دریافت کلید Gemini از Google AI Studio ↗</a>
+          <a class="hint" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" data-i18n="getKey">دریافت کلید Gemini از Google AI Studio ↗</a>
         </div>
 
         <div class="field">
-          <label for="stt">مدل ترجمه زنده</label>
-          <input id="stt" type="text" placeholder="پیش‌فرض: gemini-3.5-live-translate-preview" autocomplete="off" spellcheck="false" />
+          <label for="stt" data-i18n="liveModel">مدل ترجمه زنده</label>
+          <input id="stt" type="text" placeholder="پیش‌فرض: gemini-3.5-live-translate-preview" data-i18n-ph="liveModelPh" autocomplete="off" spellcheck="false" />
+        </div>
+
+        <div class="field">
+          <label for="pageModel" data-i18n="pageModel">مدل ترجمه متن صفحه</label>
+          <input id="pageModel" type="text" placeholder="پیش‌فرض: gemini-3.8-flash" data-i18n-ph="pageModelPh" autocomplete="off" spellcheck="false" />
         </div>
 
         <div class="lang-row">
           <div class="field">
-            <label for="userLang">زبان شما</label>
+            <label for="userLang" data-i18n="yourLang">زبان شما</label>
             <input id="userLang" type="text" placeholder="fa" autocomplete="off" spellcheck="false" />
           </div>
           <div class="lang-arrow" aria-hidden="true">⇄</div>
           <div class="field">
-            <label for="friendLang">زبان جلسه</label>
+            <label for="friendLang" data-i18n="meetLang">زبان جلسه</label>
             <input id="friendLang" type="text" placeholder="en" autocomplete="off" spellcheck="false" />
           </div>
         </div>
@@ -82,24 +95,24 @@
             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
             <path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
           </svg>
-          ترجمه مکالمه
+          <span data-i18n="convTitle">ترجمه مکالمه</span>
         </h2>
 
         <div class="field">
           <div class="range-header">
-            <label for="origVol">صدای اصلی جلسه</label>
+            <label for="origVol" data-i18n="origVol">صدای اصلی جلسه</label>
             <span id="vv">20%</span>
           </div>
           <input id="origVol" type="range" min="0" max="100" value="0" />
         </div>
 
         <label class="check">
-          <span>پخش ترجمه صدای جلسه/ویدیو</span>
+          <span data-i18n="voiceOn">پخش ترجمه صدای جلسه/ویدیو</span>
           <input type="checkbox" id="voiceOn" />
         </label>
 
         <label class="check">
-          <span>ترجمه گفتار من برای جلسه</span>
+          <span data-i18n="micOn">ترجمه گفتار من برای جلسه</span>
           <input type="checkbox" id="micOn" />
         </label>
 
@@ -108,14 +121,15 @@
             <svg viewBox="0 0 24 24" class="ico" aria-hidden="true">
               <circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="16" y2="12" /><line x1="12" x2="12.01" y1="8" y2="8" />
             </svg>
-            راهنما و حریم خصوصی
+            <span data-i18n="helpTitle">راهنما و حریم خصوصی</span>
           </summary>
           <ul>
-            <li>صدای دوستتان به زبان شما پخش می‌شود و گفتار شما پس از ترجمه از میکروفون جلسه برای او فرستاده می‌شود.</li>
-            <li>وقتی «ترجمهٔ گفتار من» روشن است، صدای خام شما به تماس فرستاده نمی‌شود.</li>
-            <li>اگر آن را خاموش کنید، میکروفون شما بدون ترجمه و دست‌نخورده به تماس می‌رود و چیزی از میکروفون به Gemini ارسال نمی‌شود.</li>
-            <li>صدای جلسه و میکروفون با API Key شما به Gemini ارسال می‌شود.</li>
-            <li>اگر تماس از قبل برقرار است، بعد از شروع ترجمه یک‌بار دوباره به تماس وصل شوید.</li>
+            <li data-i18n="help1">صدای دوستتان به زبان شما پخش می‌شود و گفتار شما پس از ترجمه از میکروفون جلسه برای او فرستاده می‌شود.</li>
+            <li data-i18n="help2">وقتی «ترجمهٔ گفتار من» روشن است، صدای خام شما به تماس فرستاده نمی‌شود.</li>
+            <li data-i18n="help3">اگر آن را خاموش کنید، میکروفون شما بدون ترجمه و دست‌نخورده به تماس می‌رود و چیزی از میکروفون به Gemini ارسال نمی‌شود.</li>
+            <li data-i18n="help4">صدای جلسه و میکروفون با API Key شما به Gemini ارسال می‌شود.</li>
+            <li data-i18n="help5">اگر تماس از قبل برقرار است، بعد از شروع ترجمه یک‌بار دوباره به تماس وصل شوید.</li>
+          <li data-i18n="help6">وقتی «ترجمه متن‌های صفحه» روشن است، متن‌های قابل‌مشاهده‌ی صفحه با API Key شما به Gemini ارسال می‌شود؛ در صفحه‌هایی که اطلاعات حساس دارند آن را روشن نکنید.</li>
           </ul>
         </details>
       </section>
@@ -126,18 +140,39 @@
           <svg viewBox="0 0 24 24" class="ico" aria-hidden="true">
             <rect width="18" height="14" x="3" y="5" rx="2" /><path d="M7 15h4M15 15h2M7 11h2M13 11h4" />
           </svg>
-          زیرنویس
+          <span data-i18n="subsTitle">زیرنویس</span>
         </h2>
 
         <label class="check">
-          <span>زیرنویس</span>
+          <span data-i18n="subs">زیرنویس</span>
           <input type="checkbox" id="subs" />
         </label>
 
         <label class="check">
-          <span>نمایش متن اصلی</span>
+          <span data-i18n="subsOrig">نمایش متن اصلی</span>
           <input type="checkbox" id="subsOrig" />
         </label>
+      </section>
+      <!-- Page text translation -->
+      <section class="card">
+        <h2 class="card-title">
+          <svg viewBox="0 0 24 24" class="ico" aria-hidden="true">
+            <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" />
+            <path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
+          </svg>
+          <span data-i18n="pageTitle">ترجمه متن صفحه</span>
+        </h2>
+
+        <label class="check">
+          <span data-i18n="pageTr">ترجمه متن‌های صفحه به زبان شما</span>
+          <input type="checkbox" id="pageTr" />
+        </label>
+
+        <div class="progress" id="prWrap" hidden>
+          <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i id="prBar"></i></div>
+          <span id="prTxt"></span>
+        </div>
+        <div class="page-error" id="prError" role="alert" hidden></div>
       </section>
     </main>
 
@@ -147,15 +182,16 @@
       <div class="actions">
         <button id="start" class="btn btn-primary" type="button">
           <svg viewBox="0 0 24 24" class="ico fill" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3" /></svg>
-          شروع مترجم
+          <span data-i18n="start">شروع مترجم</span>
         </button>
         <button id="stop" class="btn btn-stop" type="button">
           <svg viewBox="0 0 24 24" class="ico fill" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" /></svg>
-          توقف
+          <span data-i18n="stop">توقف</span>
         </button>
       </div>
     </footer>
 
+    <script src="i18n.js"></script>
     <script src="common.js"></script>
     <script src="reveal.js"></script>
     <script src="popup.js"></script>
