@@ -29,6 +29,7 @@ var DubI18n = (() => {
     subsOrig: "نمایش متن اصلی",
     pageTitle: "ترجمه متن صفحه",
     pageTr: "ترجمه متن‌های صفحه به زبان شما",
+    pageLimitNote: "ترجمه صفحه با Gemini انجام می‌شود و محدودیت سهمیه و تعداد درخواست دارد. اگر به سقف برسد، ترجمه پس از مدتی ادامه پیدا می‌کند.",
     pageProgress: "{pct}٪ ترجمه شد ({done} از {total} متن)",
     pageWorking: "در حال ترجمه صفحه…",
     pageDone: "ترجمه کامل شد",
@@ -75,6 +76,7 @@ var DubI18n = (() => {
     subsOrig: "Show original text",
     pageTitle: "Page text translation",
     pageTr: "Translate page text into your language",
+    pageLimitNote: "Page translation uses Gemini and is subject to quota and request limits. If a limit is reached, translation will resume after a wait.",
     pageProgress: "{pct}% translated ({done} of {total} texts)",
     pageWorking: "Translating page…",
     pageDone: "Translation complete",
@@ -93,14 +95,14 @@ var DubI18n = (() => {
   };
 
   FA.pageModel = "مدل ترجمه متن صفحه";
-  FA.pageModelPh = "پیش‌فرض: gemini-3.8-flash";
+  FA.pageModelPh = "پیش‌فرض: gemini-3.5-flash-lite";
   FA.pageErrTitle = "خطای ترجمهٔ صفحه";
   FA.pageErrQuota = "سهمیه رایگان مدل {model} تمام شده؛ حدود {retry} دیگر دوباره تلاش می‌شود.";
   FA.pageErrBusy = "سرویس Gemini موقتاً شلوغ است؛ ترجمه پس از مکث دوباره تلاش می‌شود.";
   FA.pageErrModel = "مدل {model} در دسترس نیست؛ نام مدل ترجمهٔ متن صفحه را بررسی کنید.";
   FA.pageErrGeneric = "خطا در ترجمهٔ صفحه: {error}";
   EN.pageModel = "Page text translation model";
-  EN.pageModelPh = "Default: gemini-3.8-flash";
+  EN.pageModelPh = "Default: gemini-3.5-flash-lite";
   EN.pageErrTitle = "Page translation error";
   EN.pageErrQuota = "The free quota for {model} is exhausted. Retrying in about {retry}.";
   EN.pageErrBusy = "Gemini is temporarily busy. Page translation will retry after a delay.";

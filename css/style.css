@@ -553,6 +553,13 @@ summary::-webkit-details-marker {
   text-decoration: underline;
 }
 
+.page-limit-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
 /* Interface language selector */
 .ui-lang { display: flex; gap: 6px; justify-content: flex-end; margin: -6px 0 12px; }
 .ui-lang select {

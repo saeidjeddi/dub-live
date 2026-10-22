@@ -428,7 +428,8 @@ function parseJsonLoose(text) {
 // Latency matters for page translation: lite models first, thinking off (retry without if unsupported).
 async function askJson(prompt, schema) {
   const { pageTextModel } = await chrome.storage.local.get("pageTextModel");
-  const model = String(pageTextModel || "gemini-3.8-flash").trim() || "gemini-3.8-flash";
+  const savedModel = String(pageTextModel || "").trim();
+  const model = !savedModel || savedModel === "gemini-3.8-flash" ? "gemini-3.5-flash-lite" : savedModel;
   const body = (thinkingOff) => ({
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {

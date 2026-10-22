@@ -21,8 +21,12 @@ const FIELDS = {
 
 chrome.storage.local.get([...Object.values(FIELDS), "target"]).then((s) => {
   $("key").value = s.key || "";
-  $("stt").value = s.liveModel || "";
-  $("pageModel").value = s.pageTextModel || "gemini-3.8-flash";
+  $("stt").value = s.liveModel || "gemini-3.5-live-translate-preview";
+  const pageTextModel = !s.pageTextModel || s.pageTextModel === "gemini-3.8-flash"
+    ? "gemini-3.5-flash-lite"
+    : s.pageTextModel;
+  $("pageModel").value = pageTextModel;
+  if (pageTextModel !== s.pageTextModel) chrome.storage.local.set({ pageTextModel });
   $("userLang").value = s.userLang || s.target || "fa";
   $("friendLang").value = s.friendLang || "en";
   $("origVol").value = s.origVol == null ? 0 : s.origVol;
@@ -39,8 +43,8 @@ chrome.storage.local.get([...Object.values(FIELDS), "target"]).then((s) => {
 const showVol = () => { $("vv").textContent = $("origVol").value + "%"; };
 const save = () => chrome.storage.local.set({
   key: $("key").value.trim(),
-  liveModel: $("stt").value.trim(),
-  pageTextModel: $("pageModel").value.trim() || "gemini-3.8-flash",
+  liveModel: $("stt").value.trim() || "gemini-3.5-live-translate-preview",
+  pageTextModel: $("pageModel").value.trim() || "gemini-3.5-flash-lite",
   userLang: $("userLang").value.trim() || "fa",
   friendLang: $("friendLang").value.trim() || "en",
   // Keep the legacy field aligned for compatibility with old config readers.
