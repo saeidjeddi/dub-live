@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "minimum_chrome_version": "116",
   "name": "Dub Live",
-  "version": "0.5.4",
+  "version": "0.6.0",
   "description": "ترجمه زنده دوطرفه برای مکالمات وب: صدای میکروفون را برای طرف مقابل ترجمه می‌کند و صدای او را برای شما برمی‌گرداند.",
   "permissions": [
     "activeTab",

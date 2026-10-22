@@ -58,13 +58,31 @@ async function activeTab() {
   return tab;
 }
 
-// Page text translation is per tab: ask the page whether it is currently translating.
+// Page text translation is per tab: ask the page whether it is translating and how far it got.
+let prTimer = null;
+function showProgress(r) {
+  const on = !!r?.on;
+  $("prWrap").hidden = !on;
+  if (!on) return;
+  const total = r.total || 0, done = r.done || 0;
+  const pct = total ? Math.min(100, Math.round((done / total) * 100)) : 100;
+  $("prBar").style.width = pct + "%";
+  $("prBar").parentElement.setAttribute("aria-valuenow", String(pct));
+  $("prTxt").textContent = t("pageProgress", { pct, done, total });
+}
 async function refreshPageTr() {
   try {
     const tab = await activeTab();
     const r = await chrome.tabs.sendMessage(tab.id, { type: "pageTrState" });
     $("pageTr").checked = !!r?.on;
-  } catch { $("pageTr").checked = false; }
+    showProgress(r);
+    if (r?.on && !prTimer) prTimer = setInterval(refreshPageTr, 700);
+    if (!r?.on && prTimer) { clearInterval(prTimer); prTimer = null; }
+  } catch {
+    $("pageTr").checked = false;
+    showProgress(null);
+    if (prTimer) { clearInterval(prTimer); prTimer = null; }
+  }
 }
 
 async function applyPageTr(on) {
@@ -76,8 +94,12 @@ async function applyPageTr(on) {
     try {
       // activeTab is granted because the user opened the popup on this tab.
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["pagetr.js"] });
-      await chrome.tabs.sendMessage(tab.id, { type: "pageTrCfg", on: true, lang: myLang() });
+      await chrome.tabs.sendMessage(tab.id, {
+        type: "pageTrCfg", on: true, lang: myLang(),
+        ui: { working: t("pageWorking"), done: t("pageDone"), rtl: DubI18n.isRtlUi() },
+      });
       setSt(t("stPageOn"));
+      refreshPageTr();
     } catch (e) {
       $("pageTr").checked = false;
       setSt(t("errPrefix") + (e.message || e));
@@ -85,6 +107,7 @@ async function applyPageTr(on) {
   } else if (tab?.id) {
     await chrome.tabs.sendMessage(tab.id, { type: "pageTrCfg", on: false }).catch(() => {});
     setSt(t("stPageOff"));
+    refreshPageTr();
   }
 }
 $("pageTr").addEventListener("change", () => applyPageTr($("pageTr").checked));

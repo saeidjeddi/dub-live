@@ -564,3 +564,10 @@ summary::-webkit-details-marker {
 /* Direction fixes: slider value must grow left-to-right in both languages; empty Persian placeholder reads RTL */
 input[type="range"] { direction: ltr; }
 html[dir="rtl"] #stt:placeholder-shown { direction: rtl; text-align: right; }
+
+/* Page translation progress */
+.progress { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.progress[hidden] { display: none; }
+.progress .bar { height: 6px; border-radius: 999px; background: var(--field); border: 1px solid var(--border); overflow: hidden; direction: ltr; }
+.progress .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.25s; }
+.progress span { color: var(--muted); font-size: 11.5px; }

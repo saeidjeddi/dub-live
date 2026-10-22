@@ -29,6 +29,9 @@ var DubI18n = (() => {
     subsOrig: "نمایش متن اصلی",
     pageTitle: "ترجمه متن صفحه",
     pageTr: "ترجمه متن‌های صفحه به زبان شما",
+    pageProgress: "{pct}٪ ترجمه شد ({done} از {total} متن)",
+    pageWorking: "در حال ترجمه صفحه…",
+    pageDone: "ترجمه کامل شد",
     start: "شروع مترجم",
     stop: "توقف",
     errPrefix: "خطا: ",
@@ -72,6 +75,9 @@ var DubI18n = (() => {
     subsOrig: "Show original text",
     pageTitle: "Page text translation",
     pageTr: "Translate page text into your language",
+    pageProgress: "{pct}% translated ({done} of {total} texts)",
+    pageWorking: "Translating page…",
+    pageDone: "Translation complete",
     start: "Start translator",
     stop: "Stop",
     errPrefix: "Error: ",
@@ -119,5 +125,6 @@ var DubI18n = (() => {
     render();
   }
 
-  return { t, setLang, render };
+  const isRtlUi = () => document.documentElement.dir === "rtl";
+  return { t, setLang, render, isRtlUi };
 })();

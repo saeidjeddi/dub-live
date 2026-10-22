@@ -26,6 +26,7 @@
   const dirState = new Map(); // element -> { dir, align } original values, for restoring
   const BLOCKISH = new Set(["block", "list-item", "table-cell", "flow-root", "inline-block"]);
   const tState = new WeakMap(); // text node -> { orig, tr }
+  const settled = new WeakMap(); // text node -> value that needs no translation
   const aState = new WeakMap(); // element -> { [attr]: { orig, tr } }
   let records = []; // { ref, attr, orig, tr } for restoring
   const cache = new Map(); // trimmed source text -> translation (this page, this language)
@@ -37,23 +38,40 @@
   let reqTimes = [];
   let observer = null;
 
-  const nearViewport = (el) => {
-    if (!el || !el.getBoundingClientRect) return false;
-    const r = el.getBoundingClientRect();
-    if (!r.width && !r.height) return false;
-    const vh = window.innerHeight || 800;
-    return r.bottom > -vh && r.top < vh * 2;
+  // Could this text node be translated at all (ignoring where it is on the page)?
+  const eligible = (n) => {
+    const v = n.nodeValue;
+    if (!v || v.length > MAX_TEXT || !HAS_LETTER.test(v)) return false;
+    const el = n.parentElement;
+    return !!el && !el.closest(SKIP_SEL);
   };
 
   const textOk = (n) => {
     const v = n.nodeValue;
-    if (!v || v.length > MAX_TEXT || !HAS_LETTER.test(v)) return false;
     const st = tState.get(n);
     if (st && st.tr === v) return false; // our own translation
-    const el = n.parentElement;
-    if (!el || el.closest(SKIP_SEL)) return false;
-    return nearViewport(el);
+    if (settled.get(n) === v) return false; // already in the target language
+    return eligible(n);
   };
+
+  // Progress over the whole page: translated (or already-target-language) text nodes / all translatable ones.
+  let statsAt = 0, statsVal = { done: 0, total: 0 };
+  function stats() {
+    const now = Date.now();
+    if (now - statsAt < 400) return statsVal;
+    let done = 0, total = 0;
+    if (S.on && document.body) {
+      const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let n = w.nextNode(); n; n = w.nextNode()) {
+        if (!eligible(n)) continue;
+        total++;
+        const v = n.nodeValue;
+        if (tState.get(n)?.tr === v || settled.get(n) === v) done++;
+      }
+    }
+    statsAt = now;
+    return (statsVal = { done, total });
+  }
 
   // Gather translatable items under `root`: { node|el, attr?, text (with whitespace) }
   function collect(root, out) {
@@ -69,7 +87,7 @@
     if (root.nodeType === 1 && root.matches(ATTR_SEL)) els.push(root);
     root.querySelectorAll(ATTR_SEL).forEach((e) => els.push(e));
     for (const el of els) {
-      if (el.closest(SKIP_SEL) || !nearViewport(el)) continue;
+      if (el.closest(SKIP_SEL)) continue;
       for (const a of ATTRS) {
         const v = el.getAttribute(a);
         if (!v || v.length > MAX_TEXT || !HAS_LETTER.test(v)) continue;
@@ -110,7 +128,10 @@
   function apply(item, translated) {
     const { lead, trail } = split(item.text);
     const value = lead + translated + trail;
-    if (value === item.text) return;
+    if (value === item.text) {
+      if (!item.attr && item.node.nodeValue === item.text) settled.set(item.node, item.text);
+      return;
+    }
     if (item.attr) {
       const el = item.node;
       if (el.getAttribute(item.attr) !== item.text) return; // changed meanwhile
@@ -190,13 +211,8 @@
           if (cache.has(core)) { apply(it, cache.get(core)); continue; }
           (groups.get(core) || groups.set(core, []).get(core)).push(it);
         }
-        // translate what is on screen first
-        const dist = (it) => {
-          const el = it.attr ? it.node : it.node.parentElement;
-          const r = el?.getBoundingClientRect?.();
-          return r ? Math.abs(r.top) : 1e9;
-        };
-        const cores = [...groups.keys()].sort((a, b) => Math.min(...groups.get(a).map(dist)) - Math.min(...groups.get(b).map(dist)));
+        // Map keeps first-occurrence order = document order, so the page is translated top to bottom.
+        const cores = [...groups.keys()];
         const batches = [];
         let cur = [], chars = 0;
         for (const c of cores) {
@@ -244,7 +260,63 @@
     timer = setTimeout(() => { timer = null; run().catch(() => {}); }, delay);
   }
 
-  const onScroll = () => { fullScan = true; schedule(120); };
+
+  // ---- On-page progress badge (bottom-left), shown while translating, hidden at 100% -------------------
+  const ui = { working: "Translating page…", done: "Translation complete", rtl: false };
+  let ov = null, ovTimer = null, ovHide = null, ovShown = false;
+
+  function ensureOverlay() {
+    if (ov) return ov;
+    const host = document.createElement("div");
+    host.style.cssText = "all:initial;position:fixed;left:16px;bottom:16px;z-index:2147483647;pointer-events:none;display:none;";
+    const root = host.attachShadow({ mode: "closed" });
+    root.innerHTML = `<style>
+      .b{box-sizing:border-box;width:230px;padding:10px 12px;border-radius:10px;background:rgba(16,22,30,.93);color:#e6edf5;
+         font:600 12px/1.5 Vazirmatn,Tahoma,system-ui,sans-serif;box-shadow:0 4px 18px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.12)}
+      .t{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px}
+      .p{direction:ltr}
+      .bar{height:6px;border-radius:999px;background:rgba(255,255,255,.14);overflow:hidden;direction:ltr}
+      .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#8b5cf6,#06b6d4);transition:width .25s}
+    </style><div class="b"><div class="t"><span class="l"></span><span class="p"></span></div><div class="bar"><i></i></div></div>`;
+    ov = { host, box: root.querySelector(".b"), l: root.querySelector(".l"), p: root.querySelector(".p"), i: root.querySelector("i") };
+    document.documentElement.appendChild(host);
+    return ov;
+  }
+  document.addEventListener("fullscreenchange", () => {
+    if (ov) (document.fullscreenElement || document.documentElement).appendChild(ov.host);
+  });
+
+  function showOverlay(pct, finished) {
+    const o = ensureOverlay();
+    o.box.dir = ui.rtl ? "rtl" : "ltr";
+    o.l.textContent = finished ? ui.done : ui.working;
+    o.p.textContent = pct + "%";
+    o.i.style.width = pct + "%";
+    o.host.style.display = "block";
+    ovShown = true;
+  }
+  function hideOverlay() {
+    clearTimeout(ovHide); ovHide = null;
+    if (ov) ov.host.style.display = "none";
+    ovShown = false;
+  }
+
+  function tick() {
+    ovTimer = null;
+    if (!S.on) return;
+    const t0 = performance.now();
+    const s = stats();
+    const cost = performance.now() - t0;
+    const pending = s.total - s.done;
+    if (pending > 0 && (ovShown || pending >= 3)) {
+      clearTimeout(ovHide); ovHide = null;
+      showOverlay(Math.floor((s.done / s.total) * 100), false);
+    } else if (pending <= 0 && ovShown && !ovHide) {
+      showOverlay(100, true);
+      ovHide = setTimeout(hideOverlay, 900);
+    }
+    ovTimer = setTimeout(tick, Math.max(500, cost * 8)); // back off on huge pages
+  }
 
   function startObserver() {
     if (observer) return;
@@ -273,22 +345,21 @@
     if (changed) { restoreAll(); cache.clear(); }
     if (!S.on) {
       S.on = true;
-      window.addEventListener("scroll", onScroll, { passive: true, capture: true });
-      window.addEventListener("resize", onScroll, { passive: true });
       startObserver();
     }
     blockedUntil = 0;
     fullScan = true;
     schedule(0);
+    if (!ovTimer) ovTimer = setTimeout(tick, 300);
   }
 
   function stop() {
     S.on = false;
     clearTimeout(timer);
-    window.removeEventListener("scroll", onScroll, true);
-    window.removeEventListener("resize", onScroll);
     observer?.disconnect();
     observer = null;
+    clearTimeout(ovTimer); ovTimer = null;
+    hideOverlay();
     dirty.clear();
     fullScan = false;
     restoreAll();
@@ -297,11 +368,16 @@
 
   function onMessage(msg, _sender, sendResponse) {
     if (msg?.type === "pageTrCfg") {
+      if (msg.ui && typeof msg.ui === "object") {
+        for (const k of ["working", "done"]) if (typeof msg.ui[k] === "string") ui[k] = msg.ui[k].slice(0, 80);
+        ui.rtl = !!msg.ui.rtl;
+      }
       if (msg.on) start(String(msg.lang || "en").trim() || "en");
       else stop();
       sendResponse?.({ ok: true });
     } else if (msg?.type === "pageTrState") {
-      sendResponse?.({ on: S.on });
+      statsAt = 0;
+      sendResponse?.({ on: S.on, ...stats() });
     }
   }
   chrome.runtime.onMessage.addListener(onMessage);
