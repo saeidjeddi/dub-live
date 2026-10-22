@@ -359,7 +359,8 @@ summary::-webkit-details-marker {
 }
 .help ul {
   margin: 8px 0 0;
-  padding: 0 16px 0 0;
+  padding: 0;
+  padding-inline-start: 18px;
   color: var(--muted);
   font-size: 11.5px;
   line-height: 1.8;
@@ -551,3 +552,15 @@ summary::-webkit-details-marker {
 .hint:hover {
   text-decoration: underline;
 }
+
+/* Interface language selector */
+.ui-lang { display: flex; gap: 6px; justify-content: flex-end; margin: -6px 0 12px; }
+.ui-lang select {
+  background: var(--field); color: var(--text-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 2px 6px; font: inherit; font-size: 11px; height: 26px; max-width: 110px;
+}
+.ui-lang [hidden] { display: none; }
+
+/* Direction fixes: slider value must grow left-to-right in both languages; empty Persian placeholder reads RTL */
+input[type="range"] { direction: ltr; }
+html[dir="rtl"] #stt:placeholder-shown { direction: rtl; text-align: right; }

@@ -1,4 +1,9 @@
 const $ = (id) => document.getElementById(id);
+const t = (k, v) => DubI18n.t(k, v);
+const setSt = (text) => { $("st").textContent = text; };
+const myLang = () => $("userLang").value.trim() || "fa";
+// Interface language: Persian (default) or English.
+const applyUi = () => DubI18n.setLang($("uiLang").value === "en" ? "en" : "fa");
 
 const FIELDS = {
   key: "key",
@@ -8,6 +13,7 @@ const FIELDS = {
   origVol: "origVol",
   subs: "subs",
   subsOrig: "subsOrig",
+  uiLang: "uiLang",
   voiceOn: "voiceOn",
   micOn: "micOn",
 };
@@ -18,11 +24,14 @@ chrome.storage.local.get([...Object.values(FIELDS), "target"]).then((s) => {
   $("userLang").value = s.userLang || s.target || "fa";
   $("friendLang").value = s.friendLang || "en";
   $("origVol").value = s.origVol == null ? 0 : s.origVol;
+  $("uiLang").value = s.uiLang || "fa";
   $("subs").checked = s.subs !== false;
   $("subsOrig").checked = !!s.subsOrig;
   $("voiceOn").checked = s.voiceOn !== false;
   $("micOn").checked = s.micOn !== false;
   showVol();
+  applyUi();
+  refreshPageTr();
 });
 
 const showVol = () => { $("vv").textContent = $("origVol").value + "%"; };
@@ -36,12 +45,53 @@ const save = () => chrome.storage.local.set({
   origVol: +$("origVol").value,
   subs: $("subs").checked,
   subsOrig: $("subsOrig").checked,
+  uiLang: $("uiLang").value,
   voiceOn: $("voiceOn").checked,
   micOn: $("micOn").checked,
   engine: "live",
 });
 
 Object.keys(FIELDS).forEach((id) => $(id).addEventListener("change", save));
+
+async function activeTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tab;
+}
+
+// Page text translation is per tab: ask the page whether it is currently translating.
+async function refreshPageTr() {
+  try {
+    const tab = await activeTab();
+    const r = await chrome.tabs.sendMessage(tab.id, { type: "pageTrState" });
+    $("pageTr").checked = !!r?.on;
+  } catch { $("pageTr").checked = false; }
+}
+
+async function applyPageTr(on) {
+  const tab = await activeTab();
+  if (on) {
+    if (!tab?.id || !/^https?:/.test(tab.url || "")) { $("pageTr").checked = false; setSt(t("stPageNeedHttp")); return; }
+    if (!$("key").value.trim()) { $("pageTr").checked = false; setSt(t("stPageNeedKey")); return; }
+    await save();
+    try {
+      // activeTab is granted because the user opened the popup on this tab.
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["pagetr.js"] });
+      await chrome.tabs.sendMessage(tab.id, { type: "pageTrCfg", on: true, lang: myLang() });
+      setSt(t("stPageOn"));
+    } catch (e) {
+      $("pageTr").checked = false;
+      setSt(t("errPrefix") + (e.message || e));
+    }
+  } else if (tab?.id) {
+    await chrome.tabs.sendMessage(tab.id, { type: "pageTrCfg", on: false }).catch(() => {});
+    setSt(t("stPageOff"));
+  }
+}
+$("pageTr").addEventListener("change", () => applyPageTr($("pageTr").checked));
+
+$("uiLang").addEventListener("change", applyUi);
+// A running page translation follows "your language".
+$("userLang").addEventListener("change", () => { if ($("pageTr").checked) applyPageTr(true); });
 $("origVol").addEventListener("input", showVol);
 
 async function installMeetingBridge(tabId) {
@@ -64,10 +114,10 @@ $("start").onclick = async () => {
   $("start").disabled = true;
   try {
     const key = $("key").value.trim();
-    if (!key) throw new Error("ابتدا Gemini API Key را وارد کنید.");
+    if (!key) throw new Error(t("errNoKey"));
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id || !/^https?:/.test(tab.url || "")) {
-      throw new Error("صفحهٔ جلسه باید یک وب‌سایت http یا https باشد.");
+      throw new Error(t("errNotHttp"));
     }
 
     await chrome.runtime.sendMessage({ type: "stopTab" }).catch(() => {});
@@ -99,11 +149,9 @@ $("start").onclick = async () => {
       friendLang: $("friendLang").value.trim() || "en",
       micOn,
     });
-    $("st").textContent = micOn
-      ? "مترجم جلسه فعال است؛ اگر تماس باز است دوباره به تماس وصل شوید."
-      : "مترجم جلسه فعال است؛ گفتار شما ترجمه نمی‌شود.";
+    setSt(t(micOn ? "stActiveMic" : "stActiveNoMic"));
   } catch (e) {
-    $("st").textContent = "خطا: " + (e.message || e);
+    setSt(t("errPrefix") + (e.message || e));
     await chrome.runtime.sendMessage({ type: "stopTab" }).catch(() => {});
   } finally {
     $("start").disabled = false;
@@ -113,7 +161,7 @@ $("start").onclick = async () => {
 $("stop").onclick = async () => {
   await chrome.runtime.sendMessage({ type: "stopTab" });
   chrome.action.setBadgeText({ text: "" });
-  $("st").textContent = "مترجم جلسه متوقف شد";
+  setSt(t("stStopped"));
 };
 
 $("voiceOn").addEventListener("change", () => {

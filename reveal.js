@@ -7,7 +7,7 @@
     const show = input.type === "password";
     input.type = show ? "text" : "password";
     btn.setAttribute("aria-pressed", String(show));
-    btn.setAttribute("aria-label", show ? "مخفی کردن کلید" : "نمایش کلید");
+    btn.setAttribute("aria-label", (window.DubI18n ? DubI18n.t(show ? "hideKey" : "showKey") : show ? "Hide key" : "Show key"));
     input.focus();
   });
 })();
