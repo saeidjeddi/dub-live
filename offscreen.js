@@ -15,9 +15,63 @@ const done = new Map();
 const st = (status) =>
   chrome.runtime.sendMessage({ type: "status", status }).catch(() => {});
 
+/* ---------- caption <-> voice sync ----------
+   Gemini sends transcription text as soon as it is produced, but the dubbed audio is queued
+   (playState.next can be seconds ahead of "now"). Captions therefore go through a queue and are
+   released when the audio they belong to actually starts playing. */
+const capQueue = []; // { at: ctx-time, msg }
+let capTimer = null,
+  capLast = 0, // keeps captions strictly in order
+  capAnchor = null; // ctx-time where the first not-yet-captioned audio chunk starts
+
+function emitCap(x) {
+  chrome.runtime.sendMessage({ type: "caption", ...x }).catch(() => {});
+}
+
+function pumpCaps() {
+  clearTimeout(capTimer);
+  capTimer = null;
+  if (!ctx) {
+    capQueue.length = 0;
+    return;
+  }
+  const now = ctx.currentTime;
+  while (capQueue.length && capQueue[0].at <= now + 0.03) emitCap(capQueue.shift().msg);
+  if (capQueue.length)
+    capTimer = setTimeout(pumpCaps, Math.max(15, (capQueue[0].at - now) * 1000));
+}
+
+function releaseCaps() {
+  // show everything waiting right now (audio dropped / muted / stopped)
+  for (const c of capQueue) c.at = 0;
+  capAnchor = null;
+  capLast = 0;
+  pumpCaps();
+}
+
+function queueCap(x, kind) {
+  if (!ctx || !voiceOn) {
+    // no dubbed voice to wait for: show at once (after anything already queued is released)
+    if (capQueue.length) releaseCaps();
+    return emitCap(x);
+  }
+  const now = ctx.currentTime;
+  let at;
+  if (kind === "end") at = Math.max(playState.next, now); // keep text until the voice finishes the turn
+  else {
+    // start of the audio this text belongs to; if the audio hasn't arrived yet, the start of the next chunk
+    at = capAnchor ?? (playState.next > now ? playState.next : now + 0.2);
+    if (x.translated) capAnchor = null; // only the translated text consumes the anchor; "heard" shares it
+  }
+  at = capLast = Math.max(at, capLast);
+  capQueue.push({ at, msg: x });
+  pumpCaps();
+}
+
 function flushPlayback() {
   // drop everything already scheduled
   if (!ctx) return;
+  releaseCaps();
   try {
     out.disconnect();
   } catch {}
@@ -107,19 +161,22 @@ function liveStart(cfg) {
         for (const p of (sc.modelTurn && sc.modelTurn.parts) || []) {
           if (p.inlineData && p.inlineData.data && ctx) {
             L.recv++;
-            if (playState.next - ctx.currentTime > 10) flushPlayback(); // fell too far behind: resync
-            __DubKit.playPcm(ctx, out, p.inlineData.data, 24000, playState);
+            if (playState.next - ctx.currentTime > 8) flushPlayback(); // fell too far behind: resync
+            const backlog = Math.max(0, playState.next - ctx.currentTime);
+            // catch-up: <1.2s backlog = normal speed, ramps to 1.35x at >=5s (smooth, per chunk)
+            playState.speed = backlog <= 1.2 ? 1 : Math.min(1.35, 1 + ((backlog - 1.2) / 3.8) * 0.35);
+            const startAt = __DubKit.playPcm(ctx, out, p.inlineData.data, 24000, playState);
+            if (capAnchor == null) capAnchor = startAt;
           }
         }
-        const cap = (x) =>
-          chrome.runtime.sendMessage({ type: "caption", ...x }).catch(() => {});
+        // order matters: audio of this message is already queued, so captions can anchor to it
         if (sc.inputTranscription && sc.inputTranscription.text)
-          cap({ heard: sc.inputTranscription.text });
+          queueCap({ heard: sc.inputTranscription.text });
         if (sc.outputTranscription && sc.outputTranscription.text) {
           L.cap++;
-          cap({ translated: sc.outputTranscription.text });
+          queueCap({ translated: sc.outputTranscription.text });
         }
-        if (sc.turnComplete || sc.generationComplete) cap({ end: true });
+        if (sc.turnComplete || sc.generationComplete) queueCap({ end: true }, "end");
       }
     };
     ws.onerror = () =>
@@ -304,6 +361,11 @@ async function stop() {
     } catch {}
     live = null;
   }
+  clearTimeout(capTimer);
+  capTimer = null;
+  capQueue.length = 0;
+  capLast = 0;
+  capAnchor = null;
   if (stream) stream.getTracks().forEach((t) => t.stop());
   if (origCtx) {
     await origCtx.close();
@@ -328,6 +390,9 @@ chrome.runtime.onMessage.addListener((m) => {
   if (m.type === "cfg") {
     voiceOn = m.voiceOn !== false;
     if (out) out.gain.value = voiceOn ? 1 : 0;
-    if (!voiceOn) speechSynthesis.cancel();
+    if (!voiceOn) {
+      speechSynthesis.cancel();
+      releaseCaps(); // voice muted: don't hold captions back for audio nobody hears
+    }
   }
 });

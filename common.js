@@ -114,10 +114,14 @@ var __DubKit = (() => {
     const src = ctx.createBufferSource();
     src.buffer = ab;
     src.connect(node);
+    // optional catch-up: state.speed > 1 plays faster so the dub doesn't drift behind the original
+    const speed = state.speed || 1;
+    src.playbackRate.value = speed;
     // keep contiguous when already playing; otherwise start with a small lead to absorb network jitter
     const t = state.next > ctx.currentTime ? state.next : ctx.currentTime + 0.2;
     src.start(t);
-    state.next = t + ab.duration;
+    state.next = t + ab.duration / speed;
+    return t; // ctx-time at which this chunk starts playing (used to sync captions)
   }
 
   async function tap(ctx, sourceNode, onSegment, opts, workletUrl) {
