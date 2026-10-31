@@ -63,9 +63,22 @@ function queueCap(x, kind) {
     at = capAnchor ?? (playState.next > now ? playState.next : now + 0.2);
     if (x.translated) capAnchor = null; // only the translated text consumes the anchor; "heard" shares it
   }
+  pushCap(at, x);
+}
+
+function pushCap(at, msg) {
   at = capLast = Math.max(at, capLast);
-  capQueue.push({ at, msg: x });
+  capQueue.push({ at, msg });
   pumpCaps();
+}
+
+// play one chunk of dubbed audio; resync / speed up when the queue grows (returns its start time)
+function playChunk(b64, rate) {
+  if (playState.next - ctx.currentTime > 8) flushPlayback(); // fell too far behind: resync
+  const backlog = Math.max(0, playState.next - ctx.currentTime);
+  // <1.2s backlog = normal speed, ramps to 1.35x at >=5s (smooth, per chunk)
+  playState.speed = backlog <= 1.2 ? 1 : Math.min(1.35, 1 + ((backlog - 1.2) / 3.8) * 0.35);
+  return __DubKit.playPcm(ctx, out, b64, rate, playState);
 }
 
 function flushPlayback() {
@@ -161,11 +174,7 @@ function liveStart(cfg) {
         for (const p of (sc.modelTurn && sc.modelTurn.parts) || []) {
           if (p.inlineData && p.inlineData.data && ctx) {
             L.recv++;
-            if (playState.next - ctx.currentTime > 8) flushPlayback(); // fell too far behind: resync
-            const backlog = Math.max(0, playState.next - ctx.currentTime);
-            // catch-up: <1.2s backlog = normal speed, ramps to 1.35x at >=5s (smooth, per chunk)
-            playState.speed = backlog <= 1.2 ? 1 : Math.min(1.35, 1 + ((backlog - 1.2) / 3.8) * 0.35);
-            const startAt = __DubKit.playPcm(ctx, out, p.inlineData.data, 24000, playState);
+            const startAt = playChunk(p.inlineData.data, 24000);
             if (capAnchor == null) capAnchor = startAt;
           }
         }

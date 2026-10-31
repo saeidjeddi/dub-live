@@ -10,11 +10,13 @@
   root.innerHTML = `<style>
     .b{max-width:80%;text-align:center;background:rgba(0,0,0,.72);color:#fff;border-radius:8px;padding:8px 14px;
        font:600 22px/1.7 Vazirmatn,Tahoma,system-ui,sans-serif;direction:rtl;text-shadow:0 1px 2px #000;display:none}
+    .n{font:500 14px/1.5 Vazirmatn,Tahoma,system-ui,sans-serif;color:#ffd166;margin-bottom:4px;display:none}
     .o{direction:ltr;font:400 15px/1.5 system-ui,sans-serif;color:#ccc;margin-bottom:4px}
-  </style><div class="b"><div class="o"></div><div class="t"></div></div>`;
+  </style><div class="b"><div class="n"></div><div class="o"></div><div class="t"></div></div>`;
   const box = root.querySelector(".b"),
     oEl = root.querySelector(".o"),
-    tEl = root.querySelector(".t");
+    tEl = root.querySelector(".t"),
+    nEl = root.querySelector(".n");
   document.documentElement.appendChild(host);
   document.addEventListener("fullscreenchange", () =>
     (document.fullscreenElement || document.documentElement).appendChild(host),
@@ -24,7 +26,9 @@
     oText = "",
     showOrig = false,
     idle = null,
-    reset = false;
+    reset = false,
+    nText = "",
+    nTimer = null;
   const MAX = 140;
   const trim = (s) => (s.length > MAX ? "…" + s.slice(-MAX) : s);
 
@@ -32,7 +36,9 @@
     tEl.textContent = tText;
     oEl.textContent = showOrig ? oText : "";
     oEl.style.display = showOrig && oText ? "block" : "none";
-    box.style.display = tText || (showOrig && oText) ? "block" : "none";
+    nEl.textContent = nText;
+    nEl.style.display = nText ? "block" : "none";
+    box.style.display = tText || nText || (showOrig && oText) ? "block" : "none";
   }
   function armIdle() {
     clearTimeout(idle);
@@ -53,6 +59,14 @@
       return;
     }
     if (m.type !== "caption") return;
+    if (m.notice) {
+      // status line (e.g. voice-clone state), auto-hides
+      nText = m.notice;
+      render();
+      clearTimeout(nTimer);
+      nTimer = setTimeout(() => { nText = ""; render(); }, 7000);
+      return;
+    }
     if (m.end) {
       reset = true;
       armIdle();
